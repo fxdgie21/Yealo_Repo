@@ -1,0 +1,62 @@
+[
+  {
+    "id": "rev-1",
+    "name": "Maria S.",
+    "role": "Residential & Party Host",
+    "location": "Greenhills, San Juan",
+    "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+    "rating": 5,
+    "comment": "Great quality ice and very fast delivery. The ice stayed solid for a long time even during our outdoor barbecue afternoon.",
+    "date": "2 days ago",
+    "verified": true,
+    "productOrdered": "Tube Ice (5 bags)"
+  },
+  {
+    "id": "rev-2",
+    "name": "John D.",
+    "role": "Convenience Store Owner",
+    "location": "Makati City",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+    "rating": 5,
+    "comment": "We regularly order ice for our store. The service is reliable, the delivery staff are always prompt, and the price is reasonable for wholesale volume.",
+    "date": "1 week ago",
+    "verified": true,
+    "productOrdered": "Wholesale Commercial Bundle"
+  },
+  {
+    "id": "rev-3",
+    "name": "Angela R.",
+    "role": "Wedding & Event Planner",
+    "location": "BGC, Taguig",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+    "rating": 5,
+    "comment": "Perfect for our event! The delivery arrived on time and everything was properly packed in heavy-duty insulated bags without any melting leaks.",
+    "date": "2 weeks ago",
+    "verified": true,
+    "productOrdered": "Crushed Ice & Block Ice"
+  },
+  {
+    "id": "rev-4",
+    "name": "Chef Marco V.",
+    "role": "Executive Chef, Blue Harbor Bistro",
+    "location": "Pasig City",
+    "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
+    "rating": 5,
+    "comment": "Pristine optical clarity, completely odorless, and zero off-taste. We use their gourmet craft spheres for our cocktail program and crushed ice for seafood bar displays.",
+    "date": "3 weeks ago",
+    "verified": true,
+    "productOrdered": "Gourmet Craft Spheres"
+  },
+  {
+    "id": "rev-5",
+    "name": "Sarah Lim",
+    "role": "Operations Manager, Coastal Café Co.",
+    "location": "Quezon City",
+    "avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
+    "rating": 5,
+    "comment": "Their 24/7 hotline saved our café when our in-house ice maker broke down during Sunday brunch. A dispatch van arrived within 35 minutes with 12 bags of chilled tube ice.",
+    "date": "1 month ago",
+    "verified": true,
+    "productOrdered": "Emergency Dispatch Tube Ice"
+  }
+]

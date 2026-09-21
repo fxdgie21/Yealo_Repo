@@ -1,0 +1,62 @@
+[
+  {
+    "id": "service-delivery",
+    "number": "01",
+    "title": "ICE DELIVERY",
+    "subtitle": "Fast & Express Fleet",
+    "description": "Fast and reliable delivery directly to your location. Our insulated fleet keeps ice completely frozen from plant to doorstep.",
+    "icon": "Truck",
+    "highlights": ["GPS-tracked temperature-controlled vans", "Standard & 45-minute rush options", "Direct-to-freezer dropoff"],
+    "badge": "Express Available"
+  },
+  {
+    "id": "service-wholesale",
+    "number": "02",
+    "title": "WHOLESALE SUPPLY",
+    "subtitle": "High-Volume Commercial Logistics",
+    "description": "Large-volume ice orders for businesses, supermarkets, fisheries, and resellers with preferred tiered corporate rates.",
+    "icon": "Layers",
+    "highlights": ["Palletized bulk packaging", "Consistent daily or weekly cadence", "Dedicated account executive"],
+    "badge": "Bulk Discount"
+  },
+  {
+    "id": "service-event",
+    "number": "03",
+    "title": "EVENT ICE SUPPLY",
+    "subtitle": "Celebrations, Banquets & Festivals",
+    "description": "Reliable ice supply for weddings, parties, festivals, sports tournaments, and large-scale outdoor events.",
+    "icon": "PartyPopper",
+    "highlights": ["On-site heavy-duty mobile cold chests", "Calculated usage per head planning", "Weekend & holiday emergency top-ups"],
+    "badge": "Event Ready"
+  },
+  {
+    "id": "service-business",
+    "number": "04",
+    "title": "BUSINESS SUPPLY",
+    "subtitle": "Restaurants, Cafés & Bars",
+    "description": "Regular ice supply for restaurants, cafés, bars, food businesses, and grocery stores. Scheduled recurring runs with zero disruption.",
+    "icon": "Building2",
+    "highlights": ["Automatic morning/evening scheduled routes", "Clean food-grade certification documentation", "Backup emergency stock guarantees"],
+    "badge": "Commercial Partner"
+  },
+  {
+    "id": "service-retail",
+    "number": "05",
+    "title": "RETAIL ICE",
+    "subtitle": "Everyday Home & Personal Needs",
+    "description": "Convenient ice purchases for everyday customers, home barbecues, road trips, and family gatherings.",
+    "icon": "ShoppingBag",
+    "highlights": ["Convenient 5kg and 10kg bags", "Drive-through pickup depots", "Quick mobile instant checkout"],
+    "badge": "Consumer Favorite"
+  },
+  {
+    "id": "service-custom",
+    "number": "06",
+    "title": "CUSTOM ORDERS",
+    "subtitle": "Sculptures & Specialty Specifications",
+    "description": "Flexible quantities, bespoke ice carving blocks, dry ice requirements, and special delivery arrangements for unique needs.",
+    "icon": "Sliders",
+    "highlights": ["Custom ice dimensions & craft cuts", "Dry ice (CO2) thermal packaging", "Scheduled multi-drop routing"],
+    "badge": "Bespoke"
+  }
+]

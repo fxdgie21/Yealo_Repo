@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-script: 'Playball', 'Caveat', cursive;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, .font-heading {
+    font-family: var(--font-display);
+  }
+
+  .font-script {
+    font-family: var(--font-script);
+  }
+}
+
+/* Yealo Color Accents */
+.bg-yealo-yellow {
+  background-color: #FDD023;
+}
+.text-yealo-yellow {
+  color: #FDD023;
+}
+.border-yealo-yellow {
+  border-color: #FDD023;
+}
+
+/* Frosted glass utilities */
+.frosted-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.frosted-glass-yellow {
+  background: rgba(253, 208, 35, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(253, 208, 35, 0.3);
+}
+
+.frosted-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(253, 208, 35, 0.3);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+}
+
+.yealo-hero-bg {
+  background-color: #FED74C;
+}
+
+.brush-edge-bottom {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 24px), 95% 100%, 90% calc(100% - 15px), 85% 100%, 75% calc(100% - 20px), 65% 100%, 55% calc(100% - 16px), 45% 100%, 35% calc(100% - 22px), 25% 100%, 15% calc(100% - 18px), 5% 100%, 0 calc(100% - 20px));
+}
+
+.brush-edge-top {
+  clip-path: polygon(0 20px, 5% 0, 15% 18px, 25% 0, 35% 22px, 45% 0, 55% 16px, 65% 0, 75% 20px, 85% 0, 90% 15px, 95% 0, 100% 24px, 100% 100%, 0 100%);
+}
+
+.ice-glow {
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+}
+
+.yellow-glow {
+  box-shadow: 0 0 30px rgba(253, 208, 35, 0.45);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FFFDF0;
+}
+::-webkit-scrollbar-thumb {
+  background: #FDD023;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E5B700;
+}

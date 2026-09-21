@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cube-ice",
+    "name": "Cube Ice (Cubes)",
+    "category": "Cubes",
+    "description": "Solid, diamond-clear gourmet ice cubes with ultra slow melt rate. Perfect for cafés, iced coffee, mixology, restaurants, and cold beverages.",
+    "price": 50,
+    "unit": "per 5kg bag",
+    "badge": "Customer Favorite",
+    "bagOptions": [
+      { "size": "1kg", "price": 20 },
+      { "size": "5kg", "price": 50 },
+      { "size": "10kg", "price": 95 }
+    ]
+  },
+  {
+    "id": "tube-ice",
+    "name": "Tube Ice (Tubes)",
+    "category": "Tubes",
+    "description": "Cylindrical food-grade tube ice with a hollow core for rapid chilling and refreshing drink contact. Ideal for milk teas, fruit shakes, coolers, and high-volume stores.",
+    "price": 45,
+    "unit": "per 5kg bag",
+    "badge": "Top Seller",
+    "bagOptions": [
+      { "size": "1kg", "price": 18 },
+      { "size": "5kg", "price": 45 },
+      { "size": "10kg", "price": 85 }
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "name": "GlacierPure Ice Co.",
+  "description": "Yealo Ice — Fresh Ice, Fair Price, Reliable Delivery. Purified crystal-clear Tube Ice and Cube Ice in 1kg, 5kg, and 10kg bags with 5-stage reverse osmosis journey serving Muñoz and San Jose City, Nueva Ecija.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "cube-ice",
+    "name": "Cube Ice (Cubes)",
+    "category": "Cubes",
+    "description": "Solid, diamond-clear gourmet ice cubes with ultra slow melt rate. Perfect for cafés, iced coffee, mixology, restaurants, and cold beverages.",
+    "longDescription": "Produced through our state-of-the-art 5-Stage Reverse Osmosis purification journey. Each cube is meticulously frozen to displace dissolved gases and impurities, yielding high density crystal clarity that chills beverages without rapid dilution.",
+    "price": 50,
+    "unit": "per 5kg bag",
+    "image": "/images/crystal-ice-cubes.jpg",
+    "badge": "Customer Favorite",
+    "temperature": "-14°C",
+    "meltRate": "Ultra-Slow",
+    "bestFor": "Iced coffee, cocktails, soft drinks, luxury dining & parties",
+    "packaging": "Hygienic sealed tear-resistant food-grade Yealo polybag",
+    "inStock": true,
+    "bagOptions": [
+      { "size": "1kg", "weightKg": 1, "price": 20, "label": "1kg Personal Bag" },
+      { "size": "5kg", "weightKg": 5, "price": 50, "label": "5kg Standard Bag" },
+      { "size": "10kg", "weightKg": 10, "price": 95, "label": "10kg Commercial Sack" }
+    ]
+  },
+  {
+    "id": "tube-ice",
+    "name": "Tube Ice (Tubes)",
+    "category": "Tubes",
+    "description": "Cylindrical food-grade tube ice with a hollow core for rapid chilling and refreshing drink contact. Ideal for milk teas, fruit shakes, coolers, and high-volume stores.",
+    "longDescription": "Manufactured using our advanced tubular freezing system and 5-stage reverse osmosis water. The hollow core allows drinks to flow through for fast temperature drop while maintaining clean, crisp taste and resisting clumping.",
+    "price": 45,
+    "unit": "per 5kg bag",
+    "image": "/images/pure-tube-ice.jpg",
+    "badge": "Top Seller",
+    "temperature": "-12°C",
+    "meltRate": "Slow",
+    "bestFor": "Milk teas, smoothies, convenience stores, coolers, caterings",
+    "packaging": "Hygienic sealed heavy-gauge food-grade Yealo polybag",
+    "inStock": true,
+    "bagOptions": [
+      { "size": "1kg", "weightKg": 1, "price": 18, "label": "1kg Personal Bag" },
+      { "size": "5kg", "weightKg": 5, "price": 45, "label": "5kg Standard Bag" },
+      { "size": "10kg", "weightKg": 10, "price": 85, "label": "10kg Commercial Sack" }
+    ]
+  }
+]
