@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Lock,
@@ -21,6 +21,10 @@ import {
   Plus,
   Trash2,
   Calendar,
+  Bell,
+  BellOff,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   collection,
@@ -72,11 +76,79 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   const [mQty, setMQty] = useState(2);
   const [mNotes, setMNotes] = useState('');
 
-  // Firestore real-time subscription
+  // Admin-only incoming order alert states
+  const [incomingAlert, setIncomingAlert] = useState<{
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    item: string;
+    total: string;
+  } | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() => {
+    return typeof window !== 'undefined' && 'Notification' in window
+      ? Notification.permission
+      : 'default';
+  });
+  const isInitialLoadRef = useRef(true);
+
+  // Sound chime synthesizer exclusively for Admin Dispatch
+  const playAlertChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  };
+
+  const requestNotifPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotifPermission(perm);
+        if (perm === 'granted') {
+          setActionMessage('Admin push notifications enabled!');
+          setTimeout(() => setActionMessage(null), 3000);
+        }
+      } catch (err) {
+        console.warn('Notification permission request error:', err);
+      }
+    }
+  };
+
+  // Auto-request notification permission when admin enters dispatch portal
+  useEffect(() => {
+    if (isOpen && isAuthenticated && typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission()
+          .then((perm) => setNotifPermission(perm))
+          .catch(() => {});
+      }
+    }
+  }, [isOpen, isAuthenticated]);
+
+  // Firestore real-time subscription (Active strictly for Admin Dispatch)
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return;
 
     setIsLoading(true);
+    isInitialLoadRef.current = true;
     const ordersCol = collection(db, 'orders');
     const q = query(ordersCol);
 
@@ -111,6 +183,52 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
           });
         });
 
+        // Trigger notification exclusively for Admin when a new order arrives
+        if (isInitialLoadRef.current) {
+          isInitialLoadRef.current = false;
+        } else {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              const orderNum = data.orderNumber || change.doc.id;
+              const customer = data.customerName || 'Customer';
+              const item = data.productName || 'Pure Ice';
+              const total = data.total ? `₱${Number(data.total).toLocaleString()}` : '';
+
+              // 1. Play audible sound chime inside Admin Portal
+              if (soundEnabled) {
+                playAlertChime();
+              }
+
+              // 2. Send Native Browser Notification exclusively to Admin
+              if (
+                typeof window !== 'undefined' &&
+                'Notification' in window &&
+                Notification.permission === 'granted'
+              ) {
+                try {
+                  new Notification(`🚨 New Dispatch Order: #${orderNum}`, {
+                    body: `${customer} placed an order for ${item} (${total}). Ready for dispatch.`,
+                    icon: '/favicon.ico',
+                    tag: `admin-order-${orderNum}`,
+                  });
+                } catch (e) {
+                  console.warn('Admin native notification failed:', e);
+                }
+              }
+
+              // 3. Highlight with prominent in-portal banner
+              setIncomingAlert({
+                id: change.doc.id,
+                orderNumber: String(orderNum),
+                customerName: String(customer),
+                item: String(item),
+                total: String(total),
+              });
+            }
+          });
+        }
+
         // Sort latest first
         fetched.sort((a, b) => {
           const timeA = new Date(a.createdAt).getTime() || 0;
@@ -136,7 +254,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     );
 
     return () => unsubscribe();
-  }, [isOpen, isAuthenticated]);
+  }, [isOpen, isAuthenticated, soundEnabled]);
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,16 +427,65 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated && (
-              <button
-                onClick={handleLogout}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#111827] bg-white/70 hover:bg-white border border-amber-300/80 transition-colors cursor-pointer shadow-2xs"
-                title="Lock admin session"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Lock PIN</span>
-              </button>
+              <>
+                {/* Sound alert toggle */}
+                <button
+                  onClick={() => setSoundEnabled((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                    soundEnabled
+                      ? 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
+                      : 'bg-black/15 text-slate-700 border-black/15'
+                  }`}
+                  title={soundEnabled ? 'Order sound alert ON' : 'Order sound alert OFF'}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+                  ) : (
+                    <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+                  )}
+                  <span className="hidden md:inline">{soundEnabled ? 'Sound ON' : 'Muted'}</span>
+                </button>
+
+                {/* Browser Notification Status / Request */}
+                <button
+                  onClick={requestNotifPermission}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                    notifPermission === 'granted'
+                      ? 'bg-emerald-600 text-white border-emerald-700'
+                      : 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
+                  }`}
+                  title="Browser push alert permission for new orders"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">
+                    {notifPermission === 'granted' ? 'Alerts ON' : 'Enable Alerts'}
+                  </span>
+                </button>
+
+                {/* Test Sound Chime */}
+                <button
+                  onClick={() => {
+                    playAlertChime();
+                    setActionMessage('Sound chime tested successfully!');
+                    setTimeout(() => setActionMessage(null), 2500);
+                  }}
+                  className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-800 bg-white/70 hover:bg-white border border-amber-300 transition-colors cursor-pointer"
+                  title="Test incoming order chime sound"
+                >
+                  Test Sound
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#111827] bg-white/70 hover:bg-white border border-amber-300/80 transition-colors cursor-pointer shadow-2xs"
+                  title="Lock admin session"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Lock PIN</span>
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -335,6 +502,47 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
           <div className="bg-[#111827] text-[#FDD023] px-6 py-2.5 text-xs font-black text-center flex items-center justify-center gap-2 animate-in fade-in border-b border-amber-400">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span>{actionMessage}</span>
+          </div>
+        )}
+
+        {/* New Order Incoming Alert Banner (Admin Exclusive) */}
+        {incomingAlert && (
+          <div className="bg-gradient-to-r from-amber-400 via-[#FED74C] to-amber-300 text-slate-900 px-6 py-3 border-b-2 border-amber-500 flex flex-wrap items-center justify-between gap-3 shadow-md animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-[#111827] text-[#FDD023] shadow-xs">
+                <Bell className="w-4 h-4 animate-bounce" />
+              </span>
+              <div>
+                <p className="font-heading font-black text-sm text-[#111827] flex items-center gap-2">
+                  <span>🚨 NEW ORDER RECEIVED: #{incomingAlert.orderNumber}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-600 text-white animate-pulse">
+                    Action Needed
+                  </span>
+                </p>
+                <p className="text-xs text-slate-800 font-medium">
+                  Customer <strong className="text-black font-black">{incomingAlert.customerName}</strong> ordered{' '}
+                  <strong>{incomingAlert.item}</strong> ({incomingAlert.total}).
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSearchQuery(incomingAlert.orderNumber);
+                  setStatusFilter('all');
+                  setIncomingAlert(null);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-[#111827] text-[#FDD023] text-xs font-black hover:bg-black transition cursor-pointer shadow-xs"
+              >
+                View Order
+              </button>
+              <button
+                onClick={() => setIncomingAlert(null)}
+                className="px-2.5 py-1.5 rounded-lg bg-black/10 hover:bg-black/20 text-[#111827] text-xs font-bold transition cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 

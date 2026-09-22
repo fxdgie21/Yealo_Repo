@@ -46,24 +46,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           : 'bg-transparent py-4 sm:py-5'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Desktop: Brand Logo on Left */}
-        <div className="hidden md:flex items-center shrink-0">
-          <a
-            href="#home"
-            id="nav-logo"
-            className="flex items-center gap-2 group focus:outline-none hover:scale-105 transition-transform"
-            aria-label="Yealo Home"
-          >
-            <YealoLogo size="sm" />
-          </a>
-        </div>
-
-        {/* Desktop: Navigation Links in Center */}
-        <nav
-          className="hidden md:flex items-center gap-4 lg:gap-7 xl:gap-8 mx-4"
-          aria-label="Main Navigation"
-        >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative flex items-center justify-between">
+        {/* Left Side: Services & Products */}
+        <div className="hidden md:flex items-center gap-6 lg:gap-8 flex-1 justify-end pr-6 lg:pr-10">
           <button
             id="nav-link-services"
             onClick={() => handleLinkClick('#services')}
@@ -78,6 +63,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {t.nav.products}
           </button>
+        </div>
+
+        {/* Center: Iconic Circular Yellow Yealo Logo */}
+        <div className="hidden md:flex items-center justify-center shrink-0">
+          <a
+            href="#home"
+            id="nav-logo"
+            className="flex items-center justify-center group focus:outline-none hover:scale-105 transition-transform"
+            aria-label="Yealo Home"
+          >
+            <YealoLogo size="md" />
+          </a>
+        </div>
+
+        {/* Right Side: Reviews & Contacts */}
+        <div className="hidden md:flex items-center gap-6 lg:gap-8 flex-1 justify-start pl-6 lg:pr-2">
           <button
             id="nav-link-reviews"
             onClick={() => handleLinkClick('#reviews')}
@@ -92,10 +93,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {t.nav.contacts}
           </button>
-        </nav>
+        </div>
 
-        {/* Desktop: Language Toggle, Track, Dispatch & Cart on Right (Non-overlapping) */}
-        <div className="hidden md:flex items-center gap-2.5 lg:gap-3 shrink-0">
+        {/* Desktop: Language Toggle, Track, Dispatch & Cart on Far Right (Cleanly separated) */}
+        <div className="hidden md:flex items-center gap-2.5 shrink-0 pl-4 border-l border-amber-300/40">
           {/* Language Toggle */}
           <div
             id="desktop-language-toggle"
@@ -137,22 +138,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             id="nav-track-order-btn"
             onClick={() => handleLinkClick('#track')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/90 text-slate-800 hover:bg-[#FED74C]/30 hover:text-black border border-amber-300 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/90 text-slate-800 hover:bg-[#FED74C]/30 hover:text-black border border-amber-300 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
             title="Track Your Order"
           >
             <Search className="w-3.5 h-3.5 text-amber-700" />
-            <span className="hidden lg:inline">{language === 'en' ? 'Track' : 'I-track'}</span>
+            <span className="hidden xl:inline">{language === 'en' ? 'Track' : 'I-track'}</span>
           </button>
 
           {/* Dispatch Portal (Store Owner) */}
           <button
             id="nav-dispatch-portal-btn"
             onClick={onOpenAdmin}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#111827] text-[#FDD023] hover:bg-black transition-all shadow-2xs cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#111827] text-[#FDD023] hover:bg-black transition-all shadow-2xs cursor-pointer whitespace-nowrap"
             title="Store Owner / Dispatch Portal"
           >
             <Truck className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Dispatch</span>
+            <span className="hidden xl:inline">Dispatch</span>
           </button>
 
           {/* Cart Icon */}

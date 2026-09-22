@@ -18,8 +18,6 @@ import { BackToTop } from './components/BackToTop';
 import { ToastContainer } from './components/Toast';
 import { Product, OrderRecord, ToastNotification } from './types';
 import { useLanguage } from './context/LanguageContext';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db } from './lib/firebase';
 
 export default function App() {
   const { language } = useLanguage();
@@ -33,103 +31,6 @@ export default function App() {
   const [savedOrders, setSavedOrders] = useState<OrderRecord[]>([]);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [contactSubjectPrefill, setContactSubjectPrefill] = useState('');
-
-  // Audio chime synthesizer for admin alert
-  const playAlertChime = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.4);
-    } catch {
-      // Audio autoplay policy fallback
-    }
-  };
-
-  // Browser Notification Trigger: Listen for new orders in Firestore
-  useEffect(() => {
-    // Request Notification permission if supported and not yet decided
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        // Auto-request or user can allow
-        Notification.requestPermission().catch(() => {});
-      }
-    }
-
-    let isInitialLoad = true;
-    const ordersCol = collection(db, 'orders');
-    const q = query(ordersCol);
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        // Skip firing notification for records already present at first mount
-        if (isInitialLoad) {
-          isInitialLoad = false;
-          return;
-        }
-
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const data = change.doc.data();
-            const orderNum = data.orderNumber || change.doc.id;
-            const customer = data.customerName || 'Customer';
-            const item = data.productName || 'Pure Ice';
-            const total = data.total ? `₱${Number(data.total).toLocaleString()}` : '';
-
-            // Play audible chime alert
-            playAlertChime();
-
-            // 1. Fire Web Browser Native Notification (Desktop / Mobile Notification)
-            if (typeof window !== 'undefined' && 'Notification' in window) {
-              if (Notification.permission === 'granted') {
-                try {
-                  const notification = new Notification(`🚨 New Yealo Ice Order: #${orderNum}`, {
-                    body: `${customer} placed an order for ${item} (${total}). Click to open dispatch board.`,
-                    icon: '/favicon.ico',
-                    tag: `order-${orderNum}`,
-                  });
-
-                  notification.onclick = () => {
-                    window.focus();
-                    setIsAdminOpen(true);
-                    notification.close();
-                  };
-                } catch (e) {
-                  console.warn('Native notification failed:', e);
-                }
-              }
-            }
-
-            // 2. High-priority in-app Toast Alert for Admin
-            addToast(
-              `🚨 New Order Alert #${orderNum}`,
-              `${customer} • ${item} (${total}). Tap to review dispatch board.`,
-              'info'
-            );
-          }
-        });
-      },
-      (error) => {
-        console.warn('Firestore orders live listener note:', error);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   // Auto-detect #admin in URL or pathname
   useEffect(() => {
