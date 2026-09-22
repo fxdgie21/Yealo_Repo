@@ -46,59 +46,60 @@ export const Navbar: React.FC<NavbarProps> = ({
           : 'bg-transparent py-4 sm:py-5'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative flex items-center justify-between md:justify-center">
-        {/* Desktop: Centered Unified Navigation - All Items Near Each Other */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        {/* Desktop: Brand Logo on Left */}
+        <div className="hidden md:flex items-center shrink-0">
+          <a
+            href="#home"
+            id="nav-logo"
+            className="flex items-center gap-2 group focus:outline-none hover:scale-105 transition-transform"
+            aria-label="Yealo Home"
+          >
+            <YealoLogo size="sm" />
+          </a>
+        </div>
+
+        {/* Desktop: Navigation Links in Center */}
         <nav
-          className="hidden md:flex items-center gap-6 lg:gap-8 xl:gap-10"
+          className="hidden md:flex items-center gap-4 lg:gap-7 xl:gap-8 mx-4"
           aria-label="Main Navigation"
         >
           <button
             id="nav-link-services"
             onClick={() => handleLinkClick('#services')}
-            className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 px-1"
+            className="text-xs font-black uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 whitespace-nowrap"
           >
             {t.nav.services}
           </button>
           <button
             id="nav-link-products"
             onClick={() => handleLinkClick('#products')}
-            className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 px-1"
+            className="text-xs font-black uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 whitespace-nowrap"
           >
             {t.nav.products}
           </button>
-
-          {/* Center: Iconic Circular Yellow Yealo Logo */}
-          <a
-            href="#home"
-            id="nav-logo"
-            className="flex items-center justify-center group focus:outline-none mx-2 hover:scale-105 transition-transform"
-            aria-label="Yealo Home"
-          >
-            <YealoLogo size="md" />
-          </a>
-
           <button
             id="nav-link-reviews"
             onClick={() => handleLinkClick('#reviews')}
-            className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 px-1"
+            className="text-xs font-black uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 whitespace-nowrap"
           >
             {t.nav.reviews}
           </button>
           <button
             id="nav-link-contacts"
             onClick={() => handleLinkClick('#contact')}
-            className="text-xs sm:text-sm font-extrabold uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 px-1"
+            className="text-xs font-black uppercase tracking-widest text-[#111827] hover:text-amber-800 transition-colors cursor-pointer py-1 whitespace-nowrap"
           >
             {t.nav.contacts}
           </button>
         </nav>
 
-        {/* Desktop: Language Toggle & Cart positioned on the right */}
-        <div className="hidden md:flex items-center gap-3.5 absolute right-4 sm:right-6 lg:right-8">
+        {/* Desktop: Language Toggle, Track, Dispatch & Cart on Right (Non-overlapping) */}
+        <div className="hidden md:flex items-center gap-2.5 lg:gap-3 shrink-0">
           {/* Language Toggle */}
           <div
             id="desktop-language-toggle"
-            className="flex items-center p-0.5 rounded-full bg-[#111827]/5 border border-amber-300/80 shadow-xs"
+            className="flex items-center p-0.5 rounded-full bg-black/5 border border-amber-300/80 shadow-2xs"
             role="group"
             aria-label="Language selection"
           >
@@ -106,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="lang-switch-en"
               onClick={() => setLanguage('en')}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-black tracking-wider transition-all duration-200 cursor-pointer ${
+              className={`px-2 py-0.5 rounded-full text-[11px] font-black tracking-wider transition-all duration-200 cursor-pointer ${
                 language === 'en'
                   ? 'bg-[#111827] text-white shadow-xs'
                   : 'text-[#111827] hover:text-amber-900'
@@ -120,7 +121,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="lang-switch-tl"
               onClick={() => setLanguage('tl')}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-black tracking-wider transition-all duration-200 cursor-pointer ${
+              className={`px-2 py-0.5 rounded-full text-[11px] font-black tracking-wider transition-all duration-200 cursor-pointer ${
                 language === 'tl'
                   ? 'bg-[#111827] text-white shadow-xs'
                   : 'text-[#111827] hover:text-amber-900'
@@ -128,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               aria-pressed={language === 'tl'}
               title="TagLish"
             >
-              TAGLISH
+              TL
             </button>
           </div>
 
@@ -136,22 +137,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             id="nav-track-order-btn"
             onClick={() => handleLinkClick('#track')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/90 text-slate-800 hover:bg-amber-100 hover:text-black border border-slate-300 shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-white/90 text-slate-800 hover:bg-[#FED74C]/30 hover:text-black border border-amber-300 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
             title="Track Your Order"
           >
-            <Search className="w-3.5 h-3.5 text-amber-600" />
-            <span className="hidden xl:inline">{language === 'en' ? 'Track' : 'I-track'}</span>
+            <Search className="w-3.5 h-3.5 text-amber-700" />
+            <span className="hidden lg:inline">{language === 'en' ? 'Track' : 'I-track'}</span>
           </button>
 
           {/* Dispatch Portal (Store Owner) */}
           <button
             id="nav-dispatch-portal-btn"
             onClick={onOpenAdmin}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-900 text-[#FDD023] hover:bg-black hover:text-white transition-all shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#111827] text-[#FDD023] hover:bg-black transition-all shadow-2xs cursor-pointer whitespace-nowrap"
             title="Store Owner / Dispatch Portal"
           >
             <Truck className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">Dispatch</span>
+            <span className="hidden lg:inline">Dispatch</span>
           </button>
 
           {/* Cart Icon */}
@@ -164,7 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <ShoppingBag className="w-5 h-5 stroke-[2.2]" />
             {orderCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#111827] text-white text-[10px] font-black flex items-center justify-center shadow-sm">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#111827] text-white text-[9px] font-black flex items-center justify-center shadow-xs">
                 {orderCount}
               </span>
             )}
