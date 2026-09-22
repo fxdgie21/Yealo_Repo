@@ -8,12 +8,8 @@ import {
   MapPin,
   Phone,
   AlertCircle,
-  ChevronRight,
-  ShieldCheck,
   RefreshCw,
   Sparkles,
-  ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { OrderRecord } from '../types';
@@ -27,7 +23,7 @@ interface OrderStatusTrackerProps {
 
 export type FulfillmentStatus = 'Pending' | 'Confirmed' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 
-export interface SimulatedOrderTracking {
+export interface OrderTrackingDetails {
   orderId: string;
   customerName: string;
   phone: string;
@@ -56,361 +52,83 @@ export interface SimulatedOrderTracking {
   }[];
 }
 
-// Preset simulated orders showcasing diverse fulfillment stages
-const SIMULATED_ORDERS: Record<string, SimulatedOrderTracking> = {
-  'YLO-94821': {
-    orderId: 'YLO-94821',
-    customerName: 'Maria Santos (Bean & Brew Cafe)',
-    phone: '0917-882-4109',
-    productName: 'Tube Ice',
-    bagSize: '5kg',
-    quantity: 4,
-    total: 190,
-    paymentMethod: 'Cash on Delivery (COD)',
-    deliveryAddress: 'Tobias St., Brgy. Bantug',
-    cityArea: 'Science City of Muñoz',
-    landmark: 'Beside Central Luzon State University Main Gate',
-    estimatedArrival: '15 - 20 mins',
-    riderName: 'Kuya Arnel (Rider #03)',
-    riderPhone: '0917-555-8812',
-    vehicleType: 'Insulated Cold-Box Tricycle',
-    status: 'Out for Delivery',
-    currentStepIndex: 3,
-    steps: [
-      {
-        title: 'Order Placed',
-        titleTl: 'Natanggap ang Order',
-        desc: 'Customer order recorded in Muñoz dispatch hub',
-        descTl: 'Na-log ang order sa Muñoz dispatch hub',
-        time: '1:45 PM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Confirmed by Dispatch',
-        titleTl: 'Kumpirmado ng Dispatch',
-        desc: 'Inventory reserved from fresh Reverse Osmosis batch',
-        descTl: 'Nareserba ang fresh batch mula sa RO plant',
-        time: '1:50 PM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Ice Packed & Sealed',
-        titleTl: 'Na-pack at Na-seal ang Yelo',
-        desc: 'Double-sealed in 100% food-grade insulated bags',
-        descTl: 'Food-grade packaging at quality inspected',
-        time: '2:02 PM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Out for Delivery',
-        titleTl: 'Papunta na ang Rider',
-        desc: 'Rider en route via Maharlika Highway route',
-        descTl: 'Papunta na si Kuya Arnel dala ang inyong yelo',
-        time: '2:15 PM',
-        done: false,
-        current: true,
-      },
-      {
-        title: 'Delivered',
-        titleTl: 'Naihatid na',
-        desc: 'Handed over at customer address & payment collected',
-        descTl: 'Na-receive at bayad na via COD',
-        time: 'Pending Delivery',
-        done: false,
-        current: false,
-      },
-    ],
-  },
-  'YLO-48192': {
-    orderId: 'YLO-48192',
-    customerName: 'Engr. David Ramos',
-    phone: '0928-441-9201',
-    productName: 'Cube Ice',
-    bagSize: '10kg',
-    quantity: 2,
-    total: 180,
-    paymentMethod: 'GCash upon Delivery',
-    deliveryAddress: 'Rizal Street, Brgy. Malasin',
-    cityArea: 'San Jose City',
-    landmark: 'Near City Public Market',
-    estimatedArrival: 'Delivered Today',
-    riderName: 'Kuya Jomar (Rider #07)',
-    riderPhone: '0919-444-2200',
-    vehicleType: 'Insulated Express Delivery Van',
-    status: 'Delivered',
-    currentStepIndex: 4,
-    steps: [
-      {
-        title: 'Order Placed',
-        titleTl: 'Natanggap ang Order',
-        desc: 'Online order confirmed',
-        descTl: 'Online order natanggap',
-        time: '10:15 AM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Confirmed by Dispatch',
-        titleTl: 'Kumpirmado ng Dispatch',
-        desc: 'San Jose route scheduled',
-        descTl: 'Nai-schedule sa San Jose route',
-        time: '10:20 AM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Ice Packed & Sealed',
-        titleTl: 'Na-pack at Na-seal',
-        desc: '2x 10kg premium cube bags loaded into cold-storage',
-        descTl: 'Nai-load sa refrigerated container',
-        time: '10:35 AM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Out for Delivery',
-        titleTl: 'Bumibiyahe ang Rider',
-        desc: 'Rider en route to Brgy. Malasin',
-        descTl: 'Biyahe papunta sa San Jose address',
-        time: '10:50 AM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Delivered',
-        titleTl: 'Matagumpay na Naihatid',
-        desc: 'Received in pristine condition with 0% melt loss',
-        descTl: 'Naihatid nang buo at solid na solid',
-        time: '11:18 AM',
-        done: true,
-        current: true,
-      },
-    ],
-  },
-  'YLO-33910': {
-    orderId: 'YLO-33910',
-    customerName: 'Nanay Corazon (Sari-Sari Store)',
-    phone: '0908-112-9988',
-    productName: 'Tube Ice',
-    bagSize: '1kg',
-    quantity: 10,
-    total: 230,
-    paymentMethod: 'Cash on Delivery (COD)',
-    deliveryAddress: 'Poblacion East, tapat ng simbahan',
-    cityArea: 'Science City of Muñoz',
-    landmark: 'Front of St. Sebastian Parish',
-    estimatedArrival: '30 - 40 mins',
-    riderName: 'Kuya Ben (Rider #01)',
-    riderPhone: '0922-333-1122',
-    vehicleType: 'Insulated Cold-Box Tricycle',
-    status: 'Preparing',
-    currentStepIndex: 2,
-    steps: [
-      {
-        title: 'Order Placed',
-        titleTl: 'Natanggap ang Order',
-        desc: 'Order logged for morning batch delivery',
-        descTl: 'Naka-log para sa morning delivery batch',
-        time: '2:10 PM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Confirmed by Dispatch',
-        titleTl: 'Kumpirmado ng Dispatch',
-        desc: 'Stock verified at Central Cold Storage Hub',
-        descTl: 'Na-verify sa Muñoz Cold Storage',
-        time: '2:14 PM',
-        done: true,
-        current: false,
-      },
-      {
-        title: 'Ice Packed & Sealed',
-        titleTl: 'Kasalukuyang Bina-bag',
-        desc: 'Bagging fresh crystal-clear tube ice from filtration line',
-        descTl: 'Kasalukuyang nag-iimpake ng yelo para sa delivery',
-        time: '2:22 PM',
-        done: false,
-        current: true,
-      },
-      {
-        title: 'Out for Delivery',
-        titleTl: 'Papunta na ang Rider',
-        desc: 'Queueing for rider motorcycle dispatch',
-        descTl: 'Susunod na isasakay sa delivery trike',
-        time: 'Est. 2:40 PM',
-        done: false,
-        current: false,
-      },
-      {
-        title: 'Delivered',
-        titleTl: 'Naihatid na',
-        desc: 'Pending delivery completion',
-        descTl: 'Mag-abang sa inyong lokasyon',
-        time: 'Est. 2:55 PM',
-        done: false,
-        current: false,
-      },
-    ],
-  },
-  'YLO-77201': {
-    orderId: 'YLO-77201',
-    customerName: 'Chef Bryan (Fiesta Grille & Bar)',
-    phone: '0917-333-9090',
-    productName: 'Cube Ice',
-    bagSize: '5kg',
-    quantity: 6,
-    total: 270,
-    paymentMethod: 'Cash on Delivery (COD)',
-    deliveryAddress: 'Maharlika Highway, boundary Talavera',
-    cityArea: 'Talavera Hub',
-    landmark: 'Beside Shell Gas Station',
-    estimatedArrival: '45 - 60 mins',
-    riderName: 'Dispatch Queue (Assigning Rider)',
-    riderPhone: '0917-555-0199',
-    vehicleType: 'Yealo Fleet Delivery Van',
-    status: 'Pending',
-    currentStepIndex: 0,
-    steps: [
-      {
-        title: 'Order Placed',
-        titleTl: 'Natanggap ang Order',
-        desc: 'Order entered into dispatch queue',
-        descTl: 'Pumasok na sa system ang order',
-        time: 'Just now',
-        done: false,
-        current: true,
-      },
-      {
-        title: 'Confirmed by Dispatch',
-        titleTl: 'Kukumpirmahin ng Dispatcher',
-        desc: 'Verifying delivery route availability',
-        descTl: 'Tinitingnan ang ruta at schedule',
-        time: 'Pending',
-        done: false,
-        current: false,
-      },
-      {
-        title: 'Ice Packed & Sealed',
-        titleTl: 'Ipa-pack ang Yelo',
-        desc: 'Awaiting packing line assignment',
-        descTl: 'Ihahanda mula sa cold vault',
-        time: 'Pending',
-        done: false,
-        current: false,
-      },
-      {
-        title: 'Out for Delivery',
-        titleTl: 'Ibibiyahe ng Rider',
-        desc: 'Rider dispatch pending',
-        descTl: 'Isasakay sa van papunta sa inyo',
-        time: 'Pending',
-        done: false,
-        current: false,
-      },
-      {
-        title: 'Delivered',
-        titleTl: 'Naihatid na',
-        desc: 'Pending completion',
-        descTl: 'Kumpirmasyon pagka-abot',
-        time: 'Pending',
-        done: false,
-        current: false,
-      },
-    ],
-  },
-};
-
-// Generator for any arbitrary Order ID typed by user
-function generateSimulatedOrder(id: string): SimulatedOrderTracking {
-  const cleanId = id.toUpperCase().trim();
-  const sampleNum = cleanId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const statusOptions: FulfillmentStatus[] = ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
-  const status = statusOptions[sampleNum % statusOptions.length];
-
-  let currentStepIndex = 0;
-  if (status === 'Pending') currentStepIndex = 0;
-  else if (status === 'Confirmed') currentStepIndex = 1;
-  else if (status === 'Preparing') currentStepIndex = 2;
-  else if (status === 'Out for Delivery') currentStepIndex = 3;
-  else if (status === 'Delivered') currentStepIndex = 4;
+function buildTrackingSteps(
+  status: FulfillmentStatus,
+  orderNumber: string,
+  deliveryAddress: string,
+  createdAt?: string
+) {
+  const stepIdx =
+    status === 'Delivered'
+      ? 4
+      : status === 'Out for Delivery'
+      ? 3
+      : status === 'Preparing'
+      ? 2
+      : status === 'Confirmed'
+      ? 1
+      : 0;
 
   const steps = [
     {
       title: 'Order Placed',
       titleTl: 'Natanggap ang Order',
-      desc: 'Order registered in the system',
-      descTl: 'Narehistro na sa system ang order',
-      time: '15 mins ago',
-      done: currentStepIndex > 0,
-      current: currentStepIndex === 0,
+      desc: `Order #${orderNumber} registered in dispatch hub`,
+      descTl: `Na-log ang Order #${orderNumber} sa Muñoz dispatch hub`,
+      time: createdAt || 'Recorded',
+      done: stepIdx > 0 || status === 'Delivered',
+      current: stepIdx === 0,
     },
     {
       title: 'Confirmed by Dispatch',
       titleTl: 'Kumpirmado ng Dispatch',
-      desc: 'Ice batch reserved from cold vault',
-      descTl: 'Nareserba mula sa planta ng Yealo',
-      time: '12 mins ago',
-      done: currentStepIndex > 1,
-      current: currentStepIndex === 1,
+      desc: 'Inventory allocated from fresh pure ice production line',
+      descTl: 'Nareserba ang fresh batch mula sa planta',
+      time: stepIdx >= 1 ? 'Confirmed' : 'Pending',
+      done: stepIdx > 1 || status === 'Delivered',
+      current: stepIdx === 1,
     },
     {
       title: 'Ice Packed & Sealed',
       titleTl: 'Na-pack at Na-seal ang Yelo',
-      desc: 'Insulated packaging sealed for delivery',
+      desc: 'Packed in food-grade insulated thermal bags',
       descTl: 'Naihanda sa food-grade insulated pouch',
-      time: '8 mins ago',
-      done: currentStepIndex > 2,
-      current: currentStepIndex === 2,
+      time: stepIdx >= 2 ? 'Packed' : 'Pending',
+      done: stepIdx > 2 || status === 'Delivered',
+      current: stepIdx === 2,
     },
     {
       title: 'Out for Delivery',
-      titleTl: 'Papunta na ang Rider',
-      desc: 'Assigned to delivery route',
-      descTl: 'Bumibiyahe na ang rider papunta sa inyo',
-      time: '3 mins ago',
-      done: currentStepIndex > 3,
-      current: currentStepIndex === 3,
+      titleTl: 'Papunta na ang Delivery Rider',
+      desc: `Rider dispatched to ${deliveryAddress || 'destination address'}`,
+      descTl: `Bumibiyahe na ang rider papunta sa ${deliveryAddress || 'inyong lokasyon'}`,
+      time: stepIdx >= 3 ? 'En Route' : 'Pending',
+      done: stepIdx > 3 || status === 'Delivered',
+      current: stepIdx === 3,
     },
     {
       title: 'Delivered',
       titleTl: 'Matagumpay na Naihatid',
-      desc: 'Handed over and COD settled',
-      descTl: 'Naihatid nang maayos at buo',
+      desc: 'Handed over in solid condition and payment received',
+      descTl: 'Naihatid nang maayos, buo, at kumpleto',
       time: status === 'Delivered' ? 'Completed' : 'Pending',
-      done: currentStepIndex >= 4,
-      current: currentStepIndex === 4,
+      done: status === 'Delivered',
+      current: status === 'Delivered',
     },
   ];
 
-  return {
-    orderId: cleanId,
-    customerName: 'Valued Customer',
-    phone: '0917-***-****',
-    productName: sampleNum % 2 === 0 ? 'Tube Ice' : 'Cube Ice',
-    bagSize: sampleNum % 3 === 0 ? '10kg' : '5kg',
-    quantity: (sampleNum % 4) + 1,
-    total: ((sampleNum % 4) + 1) * 45 + 30,
-    paymentMethod: 'Cash on Delivery (COD)',
-    deliveryAddress: 'Maharlika Highway, Science City of Muñoz',
-    cityArea: 'Science City of Muñoz',
-    landmark: 'Nueva Ecija',
-    estimatedArrival:
-      status === 'Delivered'
-        ? 'Delivered'
-        : status === 'Out for Delivery'
-        ? '15 - 25 mins'
-        : '35 - 50 mins',
-    riderName: 'Kuya Arnel (Rider #03)',
-    riderPhone: '0917-555-8812',
-    vehicleType: 'Insulated Cold-Box Tricycle',
-    status,
-    currentStepIndex,
-    steps,
-  };
+  const estimatedArrival =
+    status === 'Delivered'
+      ? 'Delivered'
+      : status === 'Out for Delivery'
+      ? '15 - 25 mins'
+      : status === 'Preparing'
+      ? '25 - 40 mins'
+      : status === 'Confirmed'
+      ? '40 - 55 mins'
+      : 'In Queue';
+
+  return { steps, stepIdx, estimatedArrival };
 }
 
 export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
@@ -418,40 +136,53 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   externalTrackingId,
 }) => {
   const { language } = useLanguage();
-  const [searchInput, setSearchInput] = useState('YLO-94821');
-  const [activeTracking, setActiveTracking] = useState<SimulatedOrderTracking | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [activeTracking, setActiveTracking] = useState<OrderTrackingDetails | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [recentOrderNumbers, setRecentOrderNumbers] = useState<string[]>([]);
 
-  // Load initial tracking on mount or external prop change
+  // Find recent orders to suggest to the user if they've placed orders on this browser
   useEffect(() => {
-    const idToLookup = externalTrackingId || 'YLO-94821';
-    setSearchInput(idToLookup);
-    performLookup(idToLookup);
+    try {
+      const stored = localStorage.getItem('yealo_orders');
+      if (stored) {
+        const parsed: OrderRecord[] = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const numbers = parsed.map((o) => o.orderNumber).filter(Boolean).slice(0, 4);
+          setRecentOrderNumbers(numbers);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Respond to external tracking ID navigation (e.g. clicking Track on an order placed in modal)
+  useEffect(() => {
+    if (externalTrackingId && externalTrackingId.trim()) {
+      setSearchInput(externalTrackingId);
+      performLookup(externalTrackingId);
+    }
   }, [externalTrackingId]);
 
   const performLookup = async (id: string) => {
-    if (!id.trim()) return;
-    setIsSearching(true);
-
     const clean = id.trim().toUpperCase();
+    if (!clean) return;
 
-    // 1. Check preset simulated orders first
-    if (SIMULATED_ORDERS[clean]) {
-      setActiveTracking(JSON.parse(JSON.stringify(SIMULATED_ORDERS[clean])));
-      setIsSearching(false);
-      return;
-    }
+    setIsSearching(true);
+    setSearchError(null);
 
-    // 2. Query live Firestore database for registered order
+    // 1. Query Firestore database for the live order
     try {
       let firestoreData: any = null;
+
       // Try direct doc by ID
       const directSnap = await getDoc(doc(db, 'orders', clean));
       if (directSnap.exists()) {
         firestoreData = directSnap.data();
       } else {
-        // Try searching by orderNumber or id
+        // Query by orderNumber field
         const ordersRef = collection(db, 'orders');
         const qNum = query(ordersRef, where('orderNumber', '==', clean));
         const numSnap = await getDocs(qNum);
@@ -461,34 +192,34 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
       }
 
       if (firestoreData) {
-        const simFromFirestore = generateSimulatedOrder(firestoreData.orderNumber || clean);
-        simFromFirestore.customerName = firestoreData.customerName || 'Valued Customer';
-        simFromFirestore.phone = firestoreData.phoneNumber || '';
-        simFromFirestore.productName = firestoreData.productName || 'Yealo Ice';
-        simFromFirestore.quantity = firestoreData.quantity || 1;
-        simFromFirestore.total = firestoreData.total || 0;
-        simFromFirestore.deliveryAddress = firestoreData.deliveryAddress || 'Nueva Ecija';
-        simFromFirestore.cityArea = firestoreData.cityArea || 'Science City of Muñoz';
-        simFromFirestore.status = (firestoreData.status as FulfillmentStatus) || 'Pending';
+        const orderNum = firestoreData.orderNumber || clean;
+        const status = (firestoreData.status as FulfillmentStatus) || 'Pending';
+        const address = firestoreData.deliveryAddress || 'Nueva Ecija';
+        const createdAt = firestoreData.createdAt ? new Date(firestoreData.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
+        const { steps, stepIdx, estimatedArrival } = buildTrackingSteps(status, orderNum, address, createdAt);
 
-        const stepIdx =
-          firestoreData.status === 'Delivered'
-            ? 4
-            : firestoreData.status === 'Out for Delivery'
-            ? 3
-            : firestoreData.status === 'Preparing'
-            ? 2
-            : firestoreData.status === 'Confirmed'
-            ? 1
-            : 0;
+        const tracking: OrderTrackingDetails = {
+          orderId: orderNum,
+          customerName: firestoreData.customerName || 'Valued Customer',
+          phone: firestoreData.phoneNumber || '',
+          productName: firestoreData.productName || 'Yealo Tube Ice',
+          bagSize: firestoreData.bagSize || '5kg',
+          quantity: firestoreData.quantity || 1,
+          total: firestoreData.total || 0,
+          paymentMethod: firestoreData.paymentMethod || 'Cash on Delivery (COD)',
+          deliveryAddress: address,
+          cityArea: firestoreData.cityArea || 'Science City of Muñoz',
+          landmark: firestoreData.landmark || '',
+          estimatedArrival,
+          riderName: firestoreData.riderName || 'Kuya Arnel (Rider #03)',
+          riderPhone: firestoreData.riderPhone || '0917-555-8812',
+          vehicleType: firestoreData.vehicleType || 'Insulated Cold-Box Tricycle',
+          status,
+          currentStepIndex: stepIdx,
+          steps,
+        };
 
-        simFromFirestore.currentStepIndex = stepIdx;
-        simFromFirestore.steps.forEach((st, idx) => {
-          st.done = idx < stepIdx || (firestoreData.status === 'Delivered' && idx <= 4);
-          st.current = idx === stepIdx;
-        });
-
-        setActiveTracking(simFromFirestore);
+        setActiveTracking(tracking);
         setIsSearching(false);
         return;
       }
@@ -496,7 +227,7 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
       // Continue to local storage fallback
     }
 
-    // 3. Check localStorage
+    // 2. Query localStorage fallback
     try {
       const stored = localStorage.getItem('yealo_orders');
       if (stored) {
@@ -508,30 +239,36 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             o.id.toUpperCase().includes(clean)
         );
         if (found) {
-          const simFromReal = generateSimulatedOrder(found.orderNumber);
-          simFromReal.customerName = found.customerName;
-          simFromReal.phone = found.phoneNumber;
-          simFromReal.productName = found.productName;
-          simFromReal.quantity = found.quantity;
-          simFromReal.total = found.total;
-          simFromReal.deliveryAddress = found.deliveryAddress;
-          simFromReal.status = (found.status as FulfillmentStatus) || 'Pending';
+          const status = (found.status as FulfillmentStatus) || 'Pending';
+          const { steps, stepIdx, estimatedArrival } = buildTrackingSteps(
+            status,
+            found.orderNumber,
+            found.deliveryAddress,
+            found.createdAt ? new Date(found.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined
+          );
 
-          const stepIdx =
-            found.status === 'Delivered'
-              ? 4
-              : found.status === 'Out for Delivery'
-              ? 3
-              : found.status === 'Preparing'
-              ? 2
-              : 0;
-          simFromReal.currentStepIndex = stepIdx;
-          simFromReal.steps.forEach((st, idx) => {
-            st.done = idx < stepIdx || (found.status === 'Delivered' && idx <= 4);
-            st.current = idx === stepIdx;
-          });
+          const tracking: OrderTrackingDetails = {
+            orderId: found.orderNumber,
+            customerName: found.customerName,
+            phone: found.phoneNumber,
+            productName: found.productName,
+            bagSize: found.bagSize || '5kg',
+            quantity: found.quantity,
+            total: found.total,
+            paymentMethod: 'Cash on Delivery (COD)',
+            deliveryAddress: found.deliveryAddress,
+            cityArea: found.cityArea || 'Science City of Muñoz',
+            landmark: found.landmark,
+            estimatedArrival,
+            riderName: 'Kuya Arnel (Rider #03)',
+            riderPhone: '0917-555-8812',
+            vehicleType: 'Insulated Cold-Box Tricycle',
+            status,
+            currentStepIndex: stepIdx,
+            steps,
+          };
 
-          setActiveTracking(simFromReal);
+          setActiveTracking(tracking);
           setIsSearching(false);
           return;
         }
@@ -540,49 +277,19 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
       // ignore
     }
 
-    // 4. Otherwise generate an accurate simulated tracking model
-    setActiveTracking(generateSimulatedOrder(clean));
+    // 3. Not found in database or local orders
+    setActiveTracking(null);
+    setSearchError(
+      language === 'en'
+        ? `No active order found with ID "${clean}". Please verify your Order ID and try again, or place a new order.`
+        : `Walang nahanap na order na may ID na "${clean}". Paki-check ang inyong Order ID o mag-order ulit.`
+    );
     setIsSearching(false);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     performLookup(searchInput);
-  };
-
-  // Quick preset selector
-  const handleSelectPreset = (id: string) => {
-    setSearchInput(id);
-    performLookup(id);
-  };
-
-  // Interactive Demo: Advance status to next step to showcase real-time tracking
-  const handleAdvanceStatus = () => {
-    if (!activeTracking) return;
-    const stages: FulfillmentStatus[] = ['Pending', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered'];
-    const curIdx = stages.indexOf(activeTracking.status);
-    const nextIdx = (curIdx + 1) % stages.length;
-    const nextStatus = stages[nextIdx];
-
-    const updated = { ...activeTracking };
-    updated.status = nextStatus;
-    updated.currentStepIndex = nextIdx;
-    updated.estimatedArrival =
-      nextStatus === 'Delivered'
-        ? 'Delivered'
-        : nextStatus === 'Out for Delivery'
-        ? '15 - 20 mins'
-        : nextStatus === 'Preparing'
-        ? '30 - 40 mins'
-        : '45 - 60 mins';
-
-    updated.steps = updated.steps.map((st, i) => ({
-      ...st,
-      done: i < nextIdx || (nextStatus === 'Delivered' && i <= 4),
-      current: i === nextIdx,
-    }));
-
-    setActiveTracking(updated);
   };
 
   const getStatusBadge = (status: FulfillmentStatus) => {
@@ -662,12 +369,12 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
 
           <p className="mt-3 text-sm sm:text-base text-slate-300 leading-relaxed">
             {language === 'en'
-              ? 'Enter your Order ID (e.g. #YLO-94821) below to view real-time packing progress, rider assignment, and estimated delivery arrival across Muñoz and San Jose City.'
+              ? 'Enter your Order ID below to view real-time packing progress, rider assignment, and estimated delivery arrival across Muñoz and San Jose City.'
               : 'I-type ang iyong Order Tracking ID upang masubaybayan ang pag-iimpake, rider dispatch, at oras ng dating ng inyong fresh ice.'}
           </p>
         </div>
 
-        {/* Search Bar & Sample ID Shortcuts */}
+        {/* Search Bar */}
         <div className="max-w-2xl mx-auto mb-10">
           <form
             onSubmit={handleSearchSubmit}
@@ -682,8 +389,8 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder={
                   language === 'en'
-                    ? 'Enter Order ID (e.g. YLO-94821)...'
-                    : 'Ilagay ang Order ID (hal. YLO-94821)...'
+                    ? 'Enter Order ID (e.g. YLO-12345)...'
+                    : 'Ilagay ang Order ID (hal. YLO-12345)...'
                 }
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-slate-900/90 text-white font-mono font-bold text-sm sm:text-base placeholder:font-sans placeholder:text-slate-500 placeholder:text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
@@ -691,8 +398,8 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             <button
               id="order-tracking-search-btn"
               type="submit"
-              disabled={isSearching}
-              className="py-3.5 px-7 rounded-xl font-heading font-black text-xs uppercase tracking-wider bg-[#FDD023] hover:bg-amber-300 text-[#111827] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+              disabled={isSearching || !searchInput.trim()}
+              className="py-3.5 px-7 rounded-xl font-heading font-black text-xs uppercase tracking-wider bg-[#FDD023] hover:bg-amber-300 text-[#111827] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSearching ? (
                 <>
@@ -708,33 +415,42 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             </button>
           </form>
 
-          {/* Preset Sample Order Buttons */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
-            <span className="text-slate-400 font-semibold">
-              {language === 'en' ? 'Try simulated orders:' : 'Subukan ang demo IDs:'}
-            </span>
-            {[
-              { id: 'YLO-94821', label: 'Out for Delivery (Rider En Route)', color: 'text-purple-300 border-purple-500/40 bg-purple-500/10' },
-              { id: 'YLO-33910', label: 'Preparing (Ice Packing)', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' },
-              { id: 'YLO-48192', label: 'Delivered (Completed)', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' },
-              { id: 'YLO-77201', label: 'Pending (Queue)', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' },
-            ].map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => handleSelectPreset(preset.id)}
-                className={`px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold border transition-all cursor-pointer hover:border-white ${preset.color} ${
-                  activeTracking?.orderId === preset.id ? 'ring-1 ring-white' : ''
-                }`}
-              >
-                {preset.id}
-              </button>
-            ))}
-          </div>
+          {/* User's recent orders shortcuts if available */}
+          {recentOrderNumbers.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className="text-slate-400 font-medium">
+                {language === 'en' ? 'Your recent orders:' : 'Inyong mga order kamakailan:'}
+              </span>
+              {recentOrderNumbers.map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => {
+                    setSearchInput(num);
+                    performLookup(num);
+                  }}
+                  className="px-2.5 py-1 rounded-lg font-mono text-xs font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 transition-all cursor-pointer"
+                >
+                  #{num}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search error notice */}
+          {searchError && (
+            <div className="mt-4 p-4 rounded-2xl bg-rose-950/50 border border-rose-800/80 text-rose-200 text-xs sm:text-sm flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">{language === 'en' ? 'Order Not Found' : 'Hindi Nahanap ang Order'}</p>
+                <p className="mt-0.5 text-rose-300/90">{searchError}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* RESULTS CARD */}
-        {activeTracking && (
+        {activeTracking ? (
           <div className="rounded-3xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden backdrop-blur-md transition-all">
             {/* Top Status Header */}
             <div className="p-6 sm:p-8 bg-[#111827] border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -759,7 +475,7 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                 </p>
               </div>
 
-              {/* ETA & Interactive Demo Advance Button */}
+              {/* Estimated Arrival Time Box */}
               <div className="flex flex-wrap items-center gap-3">
                 <div className="px-4 py-2.5 rounded-2xl bg-slate-800/90 border border-slate-700 text-right">
                   <div className="text-[10px] uppercase font-black tracking-widest text-slate-400">
@@ -770,20 +486,6 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                     <span>{activeTracking.estimatedArrival}</span>
                   </div>
                 </div>
-
-                {/* Status Switcher for Demo */}
-                <button
-                  type="button"
-                  onClick={handleAdvanceStatus}
-                  title="Simulate advancing to next delivery step"
-                  className="px-3.5 py-2.5 rounded-2xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">
-                    {language === 'en' ? 'Advance Step (Demo)' : 'Susunod na Hakbang'}
-                  </span>
-                  <span className="sm:hidden">Next Step</span>
-                </button>
               </div>
             </div>
 
@@ -954,7 +656,32 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : !searchError ? (
+          /* Clean empty placeholder prompt encouraging user to track an actual order */
+          <div className="p-8 sm:p-12 rounded-3xl bg-slate-800/50 border border-slate-700/60 text-center max-w-xl mx-auto backdrop-blur-xs">
+            <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-amber-400 mx-auto flex items-center justify-center mb-3">
+              <Truck className="w-6 h-6" />
+            </div>
+            <h3 className="font-heading font-black text-base sm:text-lg text-white">
+              {language === 'en' ? 'Ready to Track Your Delivery' : 'Handa nang I-track ang Delivery'}
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md mx-auto">
+              {language === 'en'
+                ? 'Enter the Order ID provided upon checkout to monitor dispatch status, packing, and courier delivery progress in real time.'
+                : 'Ilagay ang Order ID mula sa inyong checkout upang masubaybayan ang progreso ng paghahatid sa real time.'}
+            </p>
+            {onOpenOrderModal && (
+              <button
+                type="button"
+                onClick={onOpenOrderModal}
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-amber-300 text-[#111827] transition-all cursor-pointer shadow-md"
+              >
+                <Package className="w-4 h-4" />
+                <span>{language === 'en' ? 'Order Ice Now' : 'Mag-order ng Yelo Ngayon'}</span>
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );

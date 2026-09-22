@@ -162,7 +162,7 @@ export default function App() {
         {/* 5. Business Stats & Quality Indicators */}
         <Stats />
 
-        {/* 6. Live Order Status Tracking (Simulated & Local Orders) */}
+        {/* 6. Live Order Status Tracking (Real-time Firestore & Local Orders) */}
         <OrderStatusTracker
           onOpenOrderModal={() => handleOpenOrderModal()}
           externalTrackingId={trackingOrderId}

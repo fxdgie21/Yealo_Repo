@@ -585,7 +585,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
               </button>
 
               <p className="text-[11px] text-slate-500 pt-2 font-medium">
-                Need quick demo access? Default PIN is <span className="font-black text-[#111827] underline decoration-amber-400">1234</span>
+                Default PIN is <span className="font-black text-[#111827] underline decoration-amber-400">1234</span>
               </p>
             </form>
           </div>
