@@ -8,6 +8,8 @@ import { ProductCatalog } from './components/ProductCatalog';
 import { ProductModal } from './components/ProductModal';
 import { OrderModal } from './components/OrderModal';
 import { RecentOrdersModal } from './components/RecentOrdersModal';
+import { AdminDispatchModal } from './components/AdminDispatchModal';
+import { OrderStatusTracker } from './components/OrderStatusTracker';
 import { ReviewsSection } from './components/ReviewsSection';
 import { ContactSection } from './components/ContactSection';
 import { LocationMapSection } from './components/LocationMapSection';
@@ -16,6 +18,8 @@ import { BackToTop } from './components/BackToTop';
 import { ToastContainer } from './components/Toast';
 import { Product, OrderRecord, ToastNotification } from './types';
 import { useLanguage } from './context/LanguageContext';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 export default function App() {
   const { language } = useLanguage();
@@ -24,9 +28,120 @@ export default function App() {
   const [orderModalInitialProductId, setOrderModalInitialProductId] = useState<string | undefined>(undefined);
   const [orderModalInitialQuantity, setOrderModalInitialQuantity] = useState<number>(1);
   const [isRecentOrdersOpen, setIsRecentOrdersOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<string>('YLO-94821');
   const [savedOrders, setSavedOrders] = useState<OrderRecord[]>([]);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [contactSubjectPrefill, setContactSubjectPrefill] = useState('');
+
+  // Audio chime synthesizer for admin alert
+  const playAlertChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  };
+
+  // Browser Notification Trigger: Listen for new orders in Firestore
+  useEffect(() => {
+    // Request Notification permission if supported and not yet decided
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        // Auto-request or user can allow
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+
+    let isInitialLoad = true;
+    const ordersCol = collection(db, 'orders');
+    const q = query(ordersCol);
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        // Skip firing notification for records already present at first mount
+        if (isInitialLoad) {
+          isInitialLoad = false;
+          return;
+        }
+
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const orderNum = data.orderNumber || change.doc.id;
+            const customer = data.customerName || 'Customer';
+            const item = data.productName || 'Pure Ice';
+            const total = data.total ? `₱${Number(data.total).toLocaleString()}` : '';
+
+            // Play audible chime alert
+            playAlertChime();
+
+            // 1. Fire Web Browser Native Notification (Desktop / Mobile Notification)
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+              if (Notification.permission === 'granted') {
+                try {
+                  const notification = new Notification(`🚨 New Yealo Ice Order: #${orderNum}`, {
+                    body: `${customer} placed an order for ${item} (${total}). Click to open dispatch board.`,
+                    icon: '/favicon.ico',
+                    tag: `order-${orderNum}`,
+                  });
+
+                  notification.onclick = () => {
+                    window.focus();
+                    setIsAdminOpen(true);
+                    notification.close();
+                  };
+                } catch (e) {
+                  console.warn('Native notification failed:', e);
+                }
+              }
+            }
+
+            // 2. High-priority in-app Toast Alert for Admin
+            addToast(
+              `🚨 New Order Alert #${orderNum}`,
+              `${customer} • ${item} (${total}). Tap to review dispatch board.`,
+              'info'
+            );
+          }
+        });
+      },
+      (error) => {
+        console.warn('Firestore orders live listener note:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Auto-detect #admin in URL or pathname
+  useEffect(() => {
+    const checkAdminHash = () => {
+      if (window.location.hash === '#admin' || window.location.pathname.endsWith('/admin')) {
+        setIsAdminOpen(true);
+      }
+    };
+    checkAdminHash();
+    window.addEventListener('hashchange', checkAdminHash);
+    return () => window.removeEventListener('hashchange', checkAdminHash);
+  }, []);
 
   // Load saved orders from localStorage
   useEffect(() => {
@@ -89,6 +204,7 @@ export default function App() {
 
   const handleOrderSuccess = (order: OrderRecord) => {
     setSavedOrders((prev) => [order, ...prev]);
+    setTrackingOrderId(order.orderNumber);
     addToast(
       language === 'en' ? 'Order Request Submitted' : 'Naitala ang Order',
       language === 'en'
@@ -118,6 +234,7 @@ export default function App() {
       <Navbar
         onOpenOrderModal={handleOpenOrderModal}
         onOpenOrdersDrawer={() => setIsRecentOrdersOpen(true)}
+        onOpenAdmin={() => setIsAdminOpen(true)}
         orderCount={savedOrders.length}
       />
 
@@ -144,21 +261,30 @@ export default function App() {
         {/* 5. Business Stats & Quality Indicators */}
         <Stats />
 
-        {/* 6. Customer Reviews & 5.0 Rating Breakdown */}
+        {/* 6. Live Order Status Tracking (Simulated & Local Orders) */}
+        <OrderStatusTracker
+          onOpenOrderModal={() => handleOpenOrderModal()}
+          externalTrackingId={trackingOrderId}
+        />
+
+        {/* 7. Customer Reviews & 5.0 Rating Breakdown */}
         <ReviewsSection onShowToast={(title, msg) => addToast(title, msg, 'success')} />
 
-        {/* 7. Contact Section */}
+        {/* 8. Contact Section */}
         <ContactSection
           onShowToast={(title, msg) => addToast(title, msg, 'success')}
           prefillSubject={contactSubjectPrefill}
         />
 
-        {/* 8. Delivery Service Territory (Muñoz & San Jose City) */}
+        {/* 9. Delivery Service Territory (Muñoz & San Jose City) */}
         <LocationMapSection />
       </main>
 
       {/* Footer */}
-      <Footer onScrollToSection={handleScrollToSection} />
+      <Footer
+        onScrollToSection={handleScrollToSection}
+        onOpenAdmin={() => setIsAdminOpen(true)}
+      />
 
       {/* Floating Back-To-Top Button */}
       <BackToTop />
@@ -193,6 +319,17 @@ export default function App() {
           setIsRecentOrdersOpen(false);
           handleOpenOrderModal();
         }}
+        onTrackOrder={(id) => {
+          setTrackingOrderId(id);
+          handleScrollToSection('track');
+        }}
+      />
+
+      {/* Store Owner Dispatch & Live Order Management Portal */}
+      <AdminDispatchModal
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        language={language}
       />
 
       {/* Toast Notifications */}

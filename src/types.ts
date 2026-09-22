@@ -55,17 +55,20 @@ export interface OrderRecord {
   email: string;
   productId: string;
   productName: string;
+  bagSize?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
   deliveryFee: number;
   total: number;
   deliveryAddress: string;
+  cityArea?: string;
+  landmark?: string;
   deliveryDate: string;
   deliveryTime: string;
   additionalNotes?: string;
   createdAt: string;
-  status: 'Pending' | 'Confirmed' | 'Out for Delivery' | 'Delivered';
+  status: 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 }
 
 export interface ContactMessage {

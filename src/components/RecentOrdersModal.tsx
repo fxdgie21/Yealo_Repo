@@ -9,6 +9,7 @@ interface RecentOrdersModalProps {
   orders: OrderRecord[];
   onClearOrders: () => void;
   onNewOrder: () => void;
+  onTrackOrder?: (orderId: string) => void;
 }
 
 export const RecentOrdersModal: React.FC<RecentOrdersModalProps> = ({
@@ -17,6 +18,7 @@ export const RecentOrdersModal: React.FC<RecentOrdersModalProps> = ({
   orders,
   onClearOrders,
   onNewOrder,
+  onTrackOrder,
 }) => {
   const { language } = useLanguage();
 
@@ -139,11 +141,26 @@ export const RecentOrdersModal: React.FC<RecentOrdersModalProps> = ({
                   </div>
                 </div>
 
-                <div className="text-[11px] text-slate-600 bg-white p-2 rounded-xl border border-amber-100 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-700" />
-                  <span>
-                    {language === 'en' ? 'Scheduled:' : 'Schedule:'} {ord.deliveryDate} ({ord.deliveryTime})
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-600 bg-white p-2.5 rounded-xl border border-amber-100">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>
+                      {language === 'en' ? 'Scheduled:' : 'Schedule:'} {ord.deliveryDate} ({ord.deliveryTime})
+                    </span>
+                  </div>
+
+                  {onTrackOrder && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onTrackOrder(ord.orderNumber);
+                      }}
+                      className="inline-flex items-center justify-center gap-1 px-3 py-1 rounded-lg bg-amber-400/20 hover:bg-amber-400 text-slate-900 font-bold text-[11px] transition-colors cursor-pointer"
+                    >
+                      <span>{language === 'en' ? 'Track Live Status' : 'I-track ang Status'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))

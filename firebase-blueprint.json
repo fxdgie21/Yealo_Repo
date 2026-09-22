@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Customer ice order for delivery",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique order tracking code, e.g. YLO-12345"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Full name of the customer"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Contact phone or mobile number"
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Specific delivery address or landmark"
+        },
+        "cityArea": {
+          "type": "string",
+          "description": "Town or city in Nueva Ecija"
+        },
+        "productName": {
+          "type": "string",
+          "description": "Name of the ice product (Tube Ice or Cube Ice)"
+        },
+        "bagSize": {
+          "type": "string",
+          "description": "Selected bag weight (1kg, 5kg, or 10kg)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Number of bags ordered"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total order amount in PHP"
+        },
+        "deliveryDate": {
+          "type": "string",
+          "description": "Requested delivery date"
+        },
+        "deliveryTime": {
+          "type": "string",
+          "description": "Requested delivery time slot"
+        },
+        "status": {
+          "type": "string",
+          "description": "Order status",
+          "enum": ["Pending", "Preparing", "Out for Delivery", "Delivered", "Cancelled"]
+        },
+        "additionalNotes": {
+          "type": "string",
+          "description": "Optional instructions for the rider"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when order was submitted"
+        }
+      },
+      "required": ["id", "customerName", "phoneNumber", "deliveryAddress", "cityArea", "productName", "bagSize", "quantity", "total", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Live incoming customer ice orders for dispatch management"
+    }
+  }
+}

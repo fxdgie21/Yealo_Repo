@@ -10,6 +10,8 @@ import {
   User,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import productsData from '../data/products.json';
 import { Product, OrderRecord } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -112,62 +114,74 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const orderNumber = `YLO-${Math.floor(100000 + Math.random() * 900000)}`;
-      const fullAddress = `${deliveryAddress}, ${cityArea}, Nueva Ecija`;
+    const orderNumber = `YLO-${Math.floor(100000 + Math.random() * 900000)}`;
+    const fullAddress = `${deliveryAddress}, ${cityArea}, Nueva Ecija`;
 
-      const newOrder: OrderRecord = {
-        id: `ord_${Date.now()}`,
-        orderNumber,
-        customerName,
-        phoneNumber,
-        email: email || 'orders@yealoice.com',
-        productId: currentProduct.id,
-        productName: `${currentProduct.name} (${selectedBagSize})`,
-        quantity,
-        unitPrice,
-        subtotal,
-        deliveryFee,
-        total: estimatedTotal,
-        deliveryAddress: fullAddress,
-        deliveryDate,
-        deliveryTime: `${deliveryTime} (${deliverySpeed === 'rush' ? 'Express Rush' : 'Standard'})`,
-        additionalNotes,
-        createdAt: new Date().toISOString(),
-        status: 'Confirmed',
-      };
+    const newOrder: OrderRecord = {
+      id: `ord_${Date.now()}`,
+      orderNumber,
+      customerName,
+      phoneNumber,
+      email: email || 'orders@yealoice.com',
+      productId: currentProduct.id,
+      productName: `${currentProduct.name} (${selectedBagSize})`,
+      bagSize: selectedBagSize,
+      quantity,
+      unitPrice,
+      subtotal,
+      deliveryFee,
+      total: estimatedTotal,
+      deliveryAddress: fullAddress,
+      cityArea,
+      landmark: deliveryAddress,
+      deliveryDate,
+      deliveryTime: `${deliveryTime} (${deliverySpeed === 'rush' ? 'Express Rush' : 'Standard'})`,
+      additionalNotes,
+      createdAt: new Date().toISOString(),
+      status: 'Pending',
+    };
 
-      try {
-        const stored = localStorage.getItem('yealo_orders');
-        const ordersList: OrderRecord[] = stored ? JSON.parse(stored) : [];
-        ordersList.unshift(newOrder);
-        localStorage.setItem('yealo_orders', JSON.stringify(ordersList));
-        localStorage.setItem('glacierpure_orders', JSON.stringify(ordersList));
-      } catch (err) {
-        console.error('LocalStorage error', err);
-      }
+    // Save to Firestore central database for the Store Owner / Admin Dispatch Portal
+    try {
+      await setDoc(doc(db, 'orders', newOrder.id), {
+        ...newOrder,
+        timestamp: serverTimestamp(),
+      });
+    } catch (firestoreErr) {
+      console.warn('Firestore live order sync error:', firestoreErr);
+    }
 
-      setSubmittedOrder(newOrder);
-      setIsSubmitting(false);
-      onOrderSuccess(newOrder);
+    // Also persist in local storage for customer receipt and quick history
+    try {
+      const stored = localStorage.getItem('yealo_orders');
+      const ordersList: OrderRecord[] = stored ? JSON.parse(stored) : [];
+      ordersList.unshift(newOrder);
+      localStorage.setItem('yealo_orders', JSON.stringify(ordersList));
+      localStorage.setItem('glacierpure_orders', JSON.stringify(ordersList));
+    } catch (err) {
+      console.error('LocalStorage error', err);
+    }
 
-      try {
-        confetti({
-          particleCount: 75,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#FDD023', '#111827', '#FEF08A', '#0284C7'],
-        });
-      } catch {
-        // ignore
-      }
-    }, 500);
+    setSubmittedOrder(newOrder);
+    setIsSubmitting(false);
+    onOrderSuccess(newOrder);
+
+    try {
+      confetti({
+        particleCount: 75,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FDD023', '#111827', '#FEF08A', '#0284C7'],
+      });
+    } catch {
+      // ignore
+    }
   };
 
   const handleResetAndClose = () => {

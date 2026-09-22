@@ -5,9 +5,10 @@ import { useLanguage } from '../context/LanguageContext';
 
 interface FooterProps {
   onScrollToSection: (id: string) => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
+export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onOpenAdmin }) => {
   const { t, language } = useLanguage();
 
   const scrollToTop = () => {
@@ -159,7 +160,20 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
 
         {/* Bottom copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© 2026 Yealo. {t.footer.rights} {t.footer.servingNote}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p>© 2026 Yealo. {t.footer.rights} {t.footer.servingNote}</p>
+            {onOpenAdmin && (
+              <>
+                <span>•</span>
+                <button
+                  onClick={onOpenAdmin}
+                  className="text-amber-400/80 hover:text-amber-300 font-semibold underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Store Owner / Dispatch Portal (Admin)
+                </button>
+              </>
+            )}
+          </div>
           <button
             onClick={scrollToTop}
             className="flex items-center gap-1.5 text-[#FDD023] hover:text-white transition-colors cursor-pointer font-bold"
