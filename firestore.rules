@@ -2,8 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /orders/{orderId} {
-      // Allow customers to submit orders and dispatch admin to read and update order status
-      allow read, create, update: if true;
+      // Allow customers to submit orders and dispatch admin to read, update, and delete orders
+      allow read, create, update, delete: if true;
     }
   }
 }

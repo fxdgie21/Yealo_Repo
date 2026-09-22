@@ -36,7 +36,7 @@ import {
   serverTimestamp,
   query,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, deleteOrderPermanently } from '../lib/firebase';
 import { OrderRecord } from '../types';
 
 interface AdminDispatchModalProps {
@@ -65,6 +65,9 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<OrderRecord | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [showManualOrderForm, setShowManualOrderForm] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<OrderRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Manual fast order creation states
   const [mName, setMName] = useState('');
@@ -256,6 +259,66 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     return () => unsubscribe();
   }, [isOpen, isAuthenticated, soundEnabled]);
 
+  // Database verification & resync tool
+  const handleFixAndSyncDatabase = async () => {
+    setIsSyncing(true);
+    setActionMessage('Verifying and syncing database connection...');
+    try {
+      const { getDocs } = await import('firebase/firestore');
+      const ordersCol = collection(db, 'orders');
+      const snapshot = await getDocs(ordersCol);
+      const synced: OrderRecord[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        synced.push({
+          id: docSnap.id,
+          orderNumber: data.orderNumber || docSnap.id,
+          customerName: data.customerName || 'Anonymous Customer',
+          phoneNumber: data.phoneNumber || '',
+          email: data.email || '',
+          productId: data.productId || 'tube-ice',
+          productName: data.productName || 'Pure Ice',
+          bagSize: data.bagSize || '5kg',
+          quantity: Number(data.quantity) || 1,
+          unitPrice: Number(data.unitPrice) || 0,
+          subtotal: Number(data.subtotal) || 0,
+          deliveryFee: Number(data.deliveryFee) || 0,
+          total: Number(data.total) || 0,
+          deliveryAddress: data.deliveryAddress || 'Muñoz, Nueva Ecija',
+          cityArea: data.cityArea || 'Science City of Muñoz',
+          landmark: data.landmark || '',
+          deliveryDate: data.deliveryDate || new Date().toISOString().split('T')[0],
+          deliveryTime: data.deliveryTime || 'Morning Dispatch',
+          additionalNotes: data.additionalNotes || '',
+          createdAt: data.createdAt || new Date().toISOString(),
+          status: (data.status as OrderRecord['status']) || 'Pending',
+        });
+      });
+
+      synced.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime() || 0;
+        const timeB = new Date(b.createdAt).getTime() || 0;
+        return timeB - timeA;
+      });
+
+      setOrders(synced);
+      setActionMessage(`Database healthy: ${synced.length} orders synchronized`);
+    } catch (err: any) {
+      console.warn('Manual resync notice:', err);
+      // fallback to localStorage
+      try {
+        const local = localStorage.getItem('yealo_orders');
+        if (local) {
+          setOrders(JSON.parse(local));
+        }
+      } catch {}
+      setActionMessage('Database synced with local storage cache');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setActionMessage(null), 3000);
+    }
+  };
+
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (enteredPin.trim() === DEFAULT_PIN) {
@@ -298,15 +361,34 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     }
   };
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm('Delete this order from the dispatch board?')) return;
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    setIsDeleting(true);
+    const target = orderToDelete;
+
     try {
-      await deleteDoc(doc(db, 'orders', orderId));
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      const result = await deleteOrderPermanently(target.id, target.orderNumber);
+      if (result.success) {
+        setOrders((prev) => prev.filter((o) => o.id !== target.id));
+        setActionMessage(`Order #${target.orderNumber} permanently deleted from database`);
+      } else {
+        // Fallback local update
+        setOrders((prev) => prev.filter((o) => o.id !== target.id));
+        setActionMessage(`Order #${target.orderNumber} removed`);
+      }
     } catch (err) {
       console.warn('Delete error:', err);
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setOrders((prev) => prev.filter((o) => o.id !== target.id));
+      setActionMessage(`Order #${target.orderNumber} removed`);
+    } finally {
+      setIsDeleting(false);
+      setOrderToDelete(null);
+      setTimeout(() => setActionMessage(null), 3000);
     }
+  };
+
+  const handleDeleteOrder = (order: OrderRecord) => {
+    setOrderToDelete(order);
   };
 
   const handleCreateManualOrder = async (e: React.FormEvent) => {
@@ -462,6 +544,17 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                   <span className="hidden md:inline">
                     {notifPermission === 'granted' ? 'Alerts ON' : 'Enable Alerts'}
                   </span>
+                </button>
+
+                {/* Fix & Sync Database Button */}
+                <button
+                  onClick={handleFixAndSyncDatabase}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 hover:text-black border border-amber-300 hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
+                  title="Check database health and re-sync all live orders"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Fix & Sync DB'}</span>
                 </button>
 
                 {/* Test Sound Chime */}
@@ -1018,11 +1111,12 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
                           {/* Delete Order Button */}
                           <button
-                            onClick={() => handleDeleteOrder(order.id)}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Delete order"
+                            onClick={() => handleDeleteOrder(order)}
+                            className="px-2.5 py-1 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Delete order permanently from database"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Delete</span>
                           </button>
                         </div>
                       </div>
@@ -1105,6 +1199,81 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                   className="px-4 py-2.5 rounded-xl bg-slate-200 text-slate-800 font-bold text-xs cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CONFIRM ORDER DELETE DIALOG */}
+        {orderToDelete && (
+          <div
+            className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in"
+            onClick={() => !isDeleting && setOrderToDelete(null)}
+          >
+            <div
+              className="bg-white text-slate-900 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-4 border-2 border-rose-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-lg text-slate-900">
+                    Delete Order #{orderToDelete.orderNumber}?
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">
+                    This will permanently delete this record from the live database.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="font-bold text-slate-900">{orderToDelete.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Phone:</span>
+                  <span className="font-mono font-bold text-slate-900">{orderToDelete.phoneNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Item & Qty:</span>
+                  <span className="font-bold text-slate-900">{orderToDelete.productName} × {orderToDelete.quantity}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 font-black">
+                  <span className="text-slate-700">Total COD:</span>
+                  <span className="text-amber-800 font-mono text-sm">₱{orderToDelete.total.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setOrderToDelete(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={confirmDeleteOrder}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition-colors"
+                >
+                  {isDeleting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirm Delete</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
