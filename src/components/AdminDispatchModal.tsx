@@ -25,6 +25,7 @@ import {
   BellOff,
   Volume2,
   VolumeX,
+  Star,
 } from 'lucide-react';
 import {
   collection,
@@ -183,6 +184,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
             additionalNotes: data.additionalNotes || '',
             createdAt: data.createdAt || new Date().toISOString(),
             status: (data.status as OrderRecord['status']) || 'Pending',
+            review: data.review || undefined,
           });
         });
 
@@ -292,6 +294,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
           additionalNotes: data.additionalNotes || '',
           createdAt: data.createdAt || new Date().toISOString(),
           status: (data.status as OrderRecord['status']) || 'Pending',
+          review: data.review || undefined,
         });
       });
 
@@ -1041,6 +1044,31 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           )}
                         </div>
                       </div>
+
+                      {/* Customer Review Feedback (if submitted) */}
+                      {order.review && (
+                        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs flex items-start gap-2">
+                          <div className="p-1 rounded-md bg-amber-200 text-amber-900 shrink-0">
+                            <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-amber-900 text-[11px]">
+                                Customer Review: {order.review.rating}/5 Stars
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {new Date(order.review.submittedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-slate-800 text-[11px] italic mt-0.5">
+                              "{order.review.comment}"
+                            </p>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              By {order.review.reviewerName || order.customerName}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Status Action Buttons Bar */}
                       <div className="pt-3 border-t border-amber-100 flex flex-wrap items-center justify-between gap-2">

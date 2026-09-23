@@ -224,6 +224,12 @@ export default function App() {
           setTrackingOrderId(id);
           handleScrollToSection('track');
         }}
+        onOrderUpdated={(updatedOrder) => {
+          setSavedOrders((prev) =>
+            prev.map((o) => (o.id === updatedOrder.id || o.orderNumber === updatedOrder.orderNumber ? updatedOrder : o))
+          );
+        }}
+        onShowToast={addToast}
       />
 
       {/* Store Owner Dispatch & Live Order Management Portal */}

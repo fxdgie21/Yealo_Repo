@@ -69,6 +69,12 @@ export interface OrderRecord {
   additionalNotes?: string;
   createdAt: string;
   status: 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+  review?: {
+    rating: number;
+    comment: string;
+    submittedAt: string;
+    reviewerName?: string;
+  };
 }
 
 export interface ContactMessage {

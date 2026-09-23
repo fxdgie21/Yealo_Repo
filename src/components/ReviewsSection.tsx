@@ -102,19 +102,25 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({ onShowToast }) =
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('yealo_reviews');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setReviews([...parsed, ...defaultReviews]);
-          return;
+    const loadReviews = () => {
+      try {
+        const saved = localStorage.getItem('yealo_reviews');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setReviews([...parsed, ...defaultReviews]);
+            return;
+          }
         }
+      } catch (e) {
+        console.error('Error reading saved reviews', e);
       }
-    } catch (e) {
-      console.error('Error reading saved reviews', e);
-    }
-    setReviews(defaultReviews);
+      setReviews(defaultReviews);
+    };
+
+    loadReviews();
+    window.addEventListener('yealo_reviews_updated', loadReviews);
+    return () => window.removeEventListener('yealo_reviews_updated', loadReviews);
   }, [language]);
 
   const handleNext = () => {
