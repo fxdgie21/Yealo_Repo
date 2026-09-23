@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Lock,
@@ -135,6 +136,17 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       }
     }
   };
+
+  // Lock background scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   // Auto-request notification permission when admin enters dispatch portal
   useEffect(() => {
@@ -480,117 +492,169 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       id="admin-dispatch-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-1 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-6xl bg-white text-slate-900 rounded-3xl shadow-2xl border border-amber-300 overflow-hidden my-4 max-h-[95vh] flex flex-col"
+        className="relative w-full max-w-6xl bg-white text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-300 overflow-hidden my-2 sm:my-4 max-h-[96vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar matching landing page header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-amber-200 bg-[#FED74C]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#111827] text-[#FDD023] flex items-center justify-center font-black shadow-md">
-              <Truck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-heading font-black text-lg text-[#111827] tracking-tight">
-                  YEALO DISPATCH PORTAL
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-[#111827] text-[#FDD023] shadow-2xs">
-                  Live Sync
-                </span>
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-amber-200 bg-[#FED74C]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#111827] text-[#FDD023] flex items-center justify-center font-black shadow-md shrink-0">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <p className="text-xs text-[#111827]/80 font-semibold">
-                Store Owner & Dispatcher Control Center • Science City of Muñoz & San Jose
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h3 className="font-heading font-black text-sm sm:text-lg text-[#111827] tracking-tight truncate">
+                    YEALO DISPATCH PORTAL
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black tracking-wider uppercase bg-[#111827] text-[#FDD023] shadow-2xs shrink-0">
+                    Live
+                  </span>
+                </div>
+                <p className="text-[10px] sm:text-xs text-[#111827]/80 font-semibold truncate hidden xs:block">
+                  Store Owner & Dispatcher Control Center • Muñoz & San Jose
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {isAuthenticated && (
+                <>
+                  {/* Sound alert toggle */}
+                  <button
+                    onClick={() => setSoundEnabled((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                      soundEnabled
+                        ? 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
+                        : 'bg-black/15 text-slate-700 border-black/15'
+                    }`}
+                    title={soundEnabled ? 'Order sound alert ON' : 'Order sound alert OFF'}
+                  >
+                    {soundEnabled ? (
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    ) : (
+                      <VolumeX className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    )}
+                    <span className="hidden md:inline">{soundEnabled ? 'Sound ON' : 'Muted'}</span>
+                  </button>
+
+                  {/* Browser Notification Status / Request */}
+                  <button
+                    onClick={requestNotifPermission}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                      notifPermission === 'granted'
+                        ? 'bg-emerald-600 text-white border-emerald-700'
+                        : 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
+                    }`}
+                    title="Browser push alert permission for new orders"
+                  >
+                    <Bell className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden md:inline">
+                      {notifPermission === 'granted' ? 'Alerts ON' : 'Alerts'}
+                    </span>
+                  </button>
+
+                  {/* Fix & Sync Database Button */}
+                  <button
+                    onClick={handleFixAndSyncDatabase}
+                    disabled={isSyncing}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 hover:text-black border border-amber-300 hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
+                    title="Check database health and re-sync all live orders"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-amber-700 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span className="hidden lg:inline">{isSyncing ? 'Syncing...' : 'Fix & Sync DB'}</span>
+                  </button>
+
+                  {/* Test Sound Chime */}
+                  <button
+                    onClick={() => {
+                      playAlertChime();
+                      setActionMessage('Sound chime tested successfully!');
+                      setTimeout(() => setActionMessage(null), 2500);
+                    }}
+                    className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-800 bg-white/70 hover:bg-white border border-amber-300 transition-colors cursor-pointer"
+                    title="Test incoming order chime sound"
+                  >
+                    Test Sound
+                  </button>
+
+                  {/* Lock PIN */}
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-[#111827] bg-white/80 hover:bg-white border border-amber-300/80 transition-colors cursor-pointer shadow-2xs"
+                    title="Lock admin session"
+                  >
+                    <Lock className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden sm:inline">Lock PIN</span>
+                  </button>
+                </>
+              )}
+              <button
+                onClick={onClose}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/10 hover:bg-black/20 text-[#111827] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                aria-label="Close admin portal"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {isAuthenticated && (
-              <>
-                {/* Sound alert toggle */}
+          {/* Secondary Mobile Quick-Action Row for Touch Devices */}
+          {isAuthenticated && (
+            <div className="flex md:hidden items-center justify-between gap-1.5 pt-2 mt-2 border-t border-amber-300/60 text-xs overflow-x-auto">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSoundEnabled((prev) => !prev)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
-                    soundEnabled
-                      ? 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
-                      : 'bg-black/15 text-slate-700 border-black/15'
+                  className={`px-2 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 border transition-colors cursor-pointer ${
+                    soundEnabled ? 'bg-white text-emerald-800 border-amber-300' : 'bg-black/10 text-slate-700 border-black/10'
                   }`}
-                  title={soundEnabled ? 'Order sound alert ON' : 'Order sound alert OFF'}
                 >
-                  {soundEnabled ? (
-                    <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
-                  ) : (
-                    <VolumeX className="w-3.5 h-3.5 text-slate-500" />
-                  )}
-                  <span className="hidden md:inline">{soundEnabled ? 'Sound ON' : 'Muted'}</span>
+                  {soundEnabled ? <Volume2 className="w-3 h-3 text-emerald-600" /> : <VolumeX className="w-3 h-3 text-slate-500" />}
+                  <span>{soundEnabled ? 'Sound ON' : 'Muted'}</span>
                 </button>
 
-                {/* Browser Notification Status / Request */}
                 <button
                   onClick={requestNotifPermission}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
-                    notifPermission === 'granted'
-                      ? 'bg-emerald-600 text-white border-emerald-700'
-                      : 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
+                  className={`px-2 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 border transition-colors cursor-pointer ${
+                    notifPermission === 'granted' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-800 border-amber-300'
                   }`}
-                  title="Browser push alert permission for new orders"
                 >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">
-                    {notifPermission === 'granted' ? 'Alerts ON' : 'Enable Alerts'}
-                  </span>
+                  <Bell className="w-3 h-3" />
+                  <span>{notifPermission === 'granted' ? 'Alerts ON' : 'Enable Alerts'}</span>
                 </button>
+              </div>
 
-                {/* Fix & Sync Database Button */}
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={handleFixAndSyncDatabase}
                   disabled={isSyncing}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 hover:text-black border border-amber-300 hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
-                  title="Check database health and re-sync all live orders"
+                  className="px-2 py-1 rounded-lg text-[11px] font-black bg-white text-slate-800 border border-amber-300 flex items-center gap-1 cursor-pointer active:scale-95"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 text-amber-700 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Fix & Sync DB'}</span>
+                  <RefreshCw className={`w-3 h-3 text-amber-700 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Syncing...' : 'Sync DB'}</span>
                 </button>
 
-                {/* Test Sound Chime */}
                 <button
                   onClick={() => {
                     playAlertChime();
                     setActionMessage('Sound chime tested successfully!');
                     setTimeout(() => setActionMessage(null), 2500);
                   }}
-                  className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-800 bg-white/70 hover:bg-white border border-amber-300 transition-colors cursor-pointer"
-                  title="Test incoming order chime sound"
+                  className="px-2 py-1 rounded-lg text-[11px] font-black bg-black/10 hover:bg-black/15 text-[#111827] flex items-center gap-1 cursor-pointer"
                 >
-                  Test Sound
+                  <span>Test Chime</span>
                 </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#111827] bg-white/70 hover:bg-white border border-amber-300/80 transition-colors cursor-pointer shadow-2xs"
-                  title="Lock admin session"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Lock PIN</span>
-                </button>
-              </>
-            )}
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-full bg-black/10 hover:bg-black/20 text-[#111827] flex items-center justify-center transition-colors cursor-pointer"
-              aria-label="Close admin portal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action toast message */}
@@ -1130,21 +1194,21 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Print Receipt / Slip Button */}
                           <button
                             onClick={() => setSelectedOrderForReceipt(order)}
-                            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-amber-300 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-amber-300 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
                             title="View / Print Rider Delivery Slip"
                           >
-                            <Printer className="w-3 h-3 text-amber-700" />
-                            <span className="hidden sm:inline">Slip</span>
+                            <Printer className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>Slip</span>
                           </button>
 
                           {/* Delete Order Button */}
                           <button
                             onClick={() => handleDeleteOrder(order)}
-                            className="px-2.5 py-1 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors flex items-center gap-1 cursor-pointer"
                             title="Delete order permanently from database"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Delete</span>
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -1319,4 +1383,6 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
