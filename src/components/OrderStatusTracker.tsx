@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Truck,
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { OrderRecord } from '../types';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface OrderStatusTrackerProps {
@@ -141,6 +141,22 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [recentOrderNumbers, setRecentOrderNumbers] = useState<string[]>([]);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [statusUpdatedFlash, setStatusUpdatedFlash] = useState(false);
+
+  // Keep reference to active Firestore real-time listener unsubs
+  const unsubscribeRealtimeRef = useRef<(() => void) | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
+
+  // Clean up listener on component unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRealtimeRef.current) {
+        unsubscribeRealtimeRef.current();
+        unsubscribeRealtimeRef.current = null;
+      }
+    };
+  }, []);
 
   // Find recent orders to suggest to the user if they've placed orders on this browser
   useEffect(() => {
@@ -166,6 +182,38 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
     }
   }, [externalTrackingId]);
 
+  // Helper to convert raw order data from Firestore into OrderTrackingDetails
+  const parseTrackingData = (data: any, orderIdentifier: string): OrderTrackingDetails => {
+    const orderNum = data.orderNumber || orderIdentifier;
+    const status = (data.status as FulfillmentStatus) || 'Pending';
+    const address = data.deliveryAddress || 'Nueva Ecija';
+    const createdAt = data.createdAt
+      ? new Date(data.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : undefined;
+    const { steps, stepIdx, estimatedArrival } = buildTrackingSteps(status, orderNum, address, createdAt);
+
+    return {
+      orderId: orderNum,
+      customerName: data.customerName || 'Valued Customer',
+      phone: data.phoneNumber || '',
+      productName: data.productName || 'Yealo Tube Ice',
+      bagSize: data.bagSize || '5kg',
+      quantity: Number(data.quantity) || 1,
+      total: Number(data.total) || 0,
+      paymentMethod: data.paymentMethod || 'Cash on Delivery (COD)',
+      deliveryAddress: address,
+      cityArea: data.cityArea || 'Science City of Muñoz',
+      landmark: data.landmark || '',
+      estimatedArrival,
+      riderName: data.riderName || 'Kuya Arnel (Rider #03)',
+      riderPhone: data.riderPhone || '0917-555-8812',
+      vehicleType: data.vehicleType || 'Insulated Cold-Box Tricycle',
+      status,
+      currentStepIndex: stepIdx,
+      steps,
+    };
+  };
+
   const performLookup = async (id: string) => {
     const clean = id.trim().toUpperCase();
     if (!clean) return;
@@ -173,61 +221,90 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
     setIsSearching(true);
     setSearchError(null);
 
-    // 1. Query Firestore database for the live order
-    try {
-      let firestoreData: any = null;
-
-      // Try direct doc by ID
-      const directSnap = await getDoc(doc(db, 'orders', clean));
-      if (directSnap.exists()) {
-        firestoreData = directSnap.data();
-      } else {
-        // Query by orderNumber field
-        const ordersRef = collection(db, 'orders');
-        const qNum = query(ordersRef, where('orderNumber', '==', clean));
-        const numSnap = await getDocs(qNum);
-        if (!numSnap.empty) {
-          firestoreData = numSnap.docs[0].data();
-        }
-      }
-
-      if (firestoreData) {
-        const orderNum = firestoreData.orderNumber || clean;
-        const status = (firestoreData.status as FulfillmentStatus) || 'Pending';
-        const address = firestoreData.deliveryAddress || 'Nueva Ecija';
-        const createdAt = firestoreData.createdAt ? new Date(firestoreData.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
-        const { steps, stepIdx, estimatedArrival } = buildTrackingSteps(status, orderNum, address, createdAt);
-
-        const tracking: OrderTrackingDetails = {
-          orderId: orderNum,
-          customerName: firestoreData.customerName || 'Valued Customer',
-          phone: firestoreData.phoneNumber || '',
-          productName: firestoreData.productName || 'Yealo Tube Ice',
-          bagSize: firestoreData.bagSize || '5kg',
-          quantity: firestoreData.quantity || 1,
-          total: firestoreData.total || 0,
-          paymentMethod: firestoreData.paymentMethod || 'Cash on Delivery (COD)',
-          deliveryAddress: address,
-          cityArea: firestoreData.cityArea || 'Science City of Muñoz',
-          landmark: firestoreData.landmark || '',
-          estimatedArrival,
-          riderName: firestoreData.riderName || 'Kuya Arnel (Rider #03)',
-          riderPhone: firestoreData.riderPhone || '0917-555-8812',
-          vehicleType: firestoreData.vehicleType || 'Insulated Cold-Box Tricycle',
-          status,
-          currentStepIndex: stepIdx,
-          steps,
-        };
-
-        setActiveTracking(tracking);
-        setIsSearching(false);
-        return;
-      }
-    } catch {
-      // Continue to local storage fallback
+    // Cancel any existing real-time listener before starting a new search
+    if (unsubscribeRealtimeRef.current) {
+      unsubscribeRealtimeRef.current();
+      unsubscribeRealtimeRef.current = null;
     }
 
-    // 2. Query localStorage fallback
+    try {
+      // 1. Check direct doc by ID first
+      const directRef = doc(db, 'orders', clean);
+      const directSnap = await getDoc(directRef);
+
+      if (directSnap.exists()) {
+        const initialData = directSnap.data();
+        const tracking = parseTrackingData(initialData, clean);
+        setActiveTracking(tracking);
+        prevStatusRef.current = tracking.status;
+        setIsSearching(false);
+        setIsLiveConnected(true);
+
+        // Attach Real-Time onSnapshot listener to the specific document
+        const unsub = onSnapshot(
+          directRef,
+          (liveSnap) => {
+            if (liveSnap.exists()) {
+              const liveData = liveSnap.data();
+              const updated = parseTrackingData(liveData, clean);
+              if (prevStatusRef.current && prevStatusRef.current !== updated.status) {
+                setStatusUpdatedFlash(true);
+                setTimeout(() => setStatusUpdatedFlash(false), 4000);
+              }
+              prevStatusRef.current = updated.status;
+              setActiveTracking(updated);
+            }
+          },
+          (err) => {
+            console.warn('Real-time tracking snapshot notice:', err);
+          }
+        );
+        unsubscribeRealtimeRef.current = unsub;
+        return;
+      }
+
+      // 2. Check query by orderNumber field (e.g. YLO-XXXXXX)
+      const ordersRef = collection(db, 'orders');
+      const qNum = query(ordersRef, where('orderNumber', '==', clean));
+      const numSnap = await getDocs(qNum);
+
+      if (!numSnap.empty) {
+        const matchedDoc = numSnap.docs[0];
+        const initialData = matchedDoc.data();
+        const tracking = parseTrackingData(initialData, clean);
+        setActiveTracking(tracking);
+        prevStatusRef.current = tracking.status;
+        setIsSearching(false);
+        setIsLiveConnected(true);
+
+        // Attach Real-Time onSnapshot query listener so whenever admin changes status in portal, it instantly reflects!
+        const unsub = onSnapshot(
+          qNum,
+          (querySnapshot) => {
+            if (!querySnapshot.empty) {
+              const liveDoc = querySnapshot.docs[0];
+              const liveData = liveDoc.data();
+              const updated = parseTrackingData(liveData, clean);
+              if (prevStatusRef.current && prevStatusRef.current !== updated.status) {
+                setStatusUpdatedFlash(true);
+                setTimeout(() => setStatusUpdatedFlash(false), 4000);
+              }
+              prevStatusRef.current = updated.status;
+              setActiveTracking(updated);
+            }
+          },
+          (err) => {
+            console.warn('Real-time query snapshot notice:', err);
+          }
+        );
+        unsubscribeRealtimeRef.current = unsub;
+        return;
+      }
+    } catch (firestoreErr) {
+      console.warn('Firestore lookup notice, falling back to local search:', firestoreErr);
+    }
+
+    // 3. Fallback: Query localStorage
     try {
       const stored = localStorage.getItem('yealo_orders');
       if (stored) {
@@ -244,7 +321,9 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             status,
             found.orderNumber,
             found.deliveryAddress,
-            found.createdAt ? new Date(found.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined
+            found.createdAt
+              ? new Date(found.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : undefined
           );
 
           const tracking: OrderTrackingDetails = {
@@ -269,7 +348,9 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
           };
 
           setActiveTracking(tracking);
+          prevStatusRef.current = status;
           setIsSearching(false);
+          setIsLiveConnected(false);
           return;
         }
       }
@@ -277,8 +358,9 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
       // ignore
     }
 
-    // 3. Not found in database or local orders
+    // 4. Not found in database or local orders
     setActiveTracking(null);
+    setIsLiveConnected(false);
     setSearchError(
       language === 'en'
         ? `No active order found with ID "${clean}". Please verify your Order ID and try again, or place a new order.`
@@ -452,6 +534,23 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
         {/* RESULTS CARD */}
         {activeTracking ? (
           <div className="rounded-3xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden backdrop-blur-md transition-all">
+            {/* Live Real-Time Auto-Update Alert Banner */}
+            {statusUpdatedFlash && (
+              <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white px-6 py-2.5 flex items-center justify-between text-xs sm:text-sm font-bold animate-bounce shadow-md">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                  <span>
+                    {language === 'en'
+                      ? `🔔 Order status automatically updated to "${activeTracking.status}" by Dispatch!`
+                      : `🔔 Awtomatikong na-update ang status ng order sa "${activeTracking.status}" ng Dispatch!`}
+                  </span>
+                </div>
+                <span className="text-[11px] uppercase tracking-wider font-mono opacity-90 hidden sm:inline">
+                  Real-time Sync Active
+                </span>
+              </div>
+            )}
+
             {/* Top Status Header */}
             <div className="p-6 sm:p-8 bg-[#111827] border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -467,6 +566,12 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                       <span>{badgeInfo.text}</span>
                     </span>
                   )}
+                  {isLiveConnected && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>Live Sync</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs sm:text-sm text-slate-300">
                   {language === 'en' ? 'Customer:' : 'Pangalan:'}{' '}
@@ -475,8 +580,17 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                 </p>
               </div>
 
-              {/* Estimated Arrival Time Box */}
+              {/* Estimated Arrival Time Box & Instant Refresh */}
               <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => performLookup(activeTracking.orderId)}
+                  disabled={isSearching}
+                  className="p-2.5 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                  title="Check live status from dispatch"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSearching ? 'animate-spin text-amber-400' : ''}`} />
+                </button>
                 <div className="px-4 py-2.5 rounded-2xl bg-slate-800/90 border border-slate-700 text-right">
                   <div className="text-[10px] uppercase font-black tracking-widest text-slate-400">
                     {language === 'en' ? 'Estimated Arrival' : 'Inaasahang Dating'}
