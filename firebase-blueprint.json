@@ -97,6 +97,10 @@
         "inStock": {
           "type": "boolean",
           "description": "Availability status"
+        },
+        "image": {
+          "type": "string",
+          "description": "Product photograph (Data URL or hosted image URL)"
         }
       },
       "required": ["id", "name", "price"]

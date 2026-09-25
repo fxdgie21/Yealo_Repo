@@ -32,6 +32,9 @@ import {
   Save,
   RotateCcw,
   Sparkles,
+  Upload,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   collection,
@@ -46,6 +49,8 @@ import {
 import { db, deleteOrderPermanently } from '../lib/firebase';
 import { OrderRecord, Product, ProductBagOption } from '../types';
 import { useProducts } from '../context/ProductsContext';
+import { ImageUploader } from './ImageUploader';
+import { processAndCompressImage } from '../lib/imageUpload';
 
 interface AdminDispatchModalProps {
   isOpen: boolean;
@@ -85,10 +90,16 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
   // Product edit modal / inline edit state
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editName, setEditName] = useState<string>('');
+  const [editCategory, setEditCategory] = useState<string>('Cubes');
+  const [editBadge, setEditBadge] = useState<string>('');
+  const [editDesc, setEditDesc] = useState<string>('');
+  const [editImage, setEditImage] = useState<string>('');
   const [editPrice1kg, setEditPrice1kg] = useState<number>(8);
   const [editPrice5kg, setEditPrice5kg] = useState<number>(40);
   const [editPrice10kg, setEditPrice10kg] = useState<number>(80);
   const [editInStock, setEditInStock] = useState<boolean>(true);
+  const [isUploadingDirect, setIsUploadingDirect] = useState<string | null>(null);
 
   // Add new product modal state
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -502,6 +513,11 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   // Product Management Handlers
   const handleStartEditProduct = (prod: Product) => {
     setEditingProductId(prod.id);
+    setEditName(prod.name);
+    setEditCategory(prod.category || 'Cubes');
+    setEditBadge(prod.badge || '');
+    setEditDesc(prod.description || '');
+    setEditImage(prod.image || '/images/crystal-ice-cubes.jpg');
     const opt1 = prod.bagOptions?.find((b) => b.size === '1kg');
     const opt5 = prod.bagOptions?.find((b) => b.size === '5kg');
     const opt10 = prod.bagOptions?.find((b) => b.size === '10kg');
@@ -519,6 +535,11 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     ];
     const updatedProd: Product = {
       ...prod,
+      name: editName.trim() || prod.name,
+      category: editCategory || prod.category,
+      badge: editBadge.trim() ? editBadge.trim() : undefined,
+      description: editDesc.trim() || prod.description,
+      image: editImage.trim() || prod.image,
       price: editPrice5kg,
       inStock: editInStock,
       bagOptions: updatedOptions,
@@ -526,8 +547,33 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
     const res = await updateProduct(updatedProd);
     if (res.success) {
-      setActionMessage(`Updated pricing for ${prod.name}! (1kg: ₱${editPrice1kg}, 5kg: ₱${editPrice5kg}, 10kg: ₱${editPrice10kg})`);
+      setActionMessage(`Updated "${updatedProd.name}" and prices successfully!`);
       setEditingProductId(null);
+      setTimeout(() => setActionMessage(null), 3500);
+    }
+  };
+
+  // Direct 1-click photo upload for quick card actions
+  const handleDirectCardImageUpload = async (product: Product, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setActionMessage('Please select a valid image file (PNG, JPG, WebP)');
+      setTimeout(() => setActionMessage(null), 3500);
+      return;
+    }
+    setIsUploadingDirect(product.id);
+    try {
+      const result = await processAndCompressImage(file, file.name);
+      const updatedProd: Product = {
+        ...product,
+        image: result.dataUrl,
+      };
+      await updateProduct(updatedProd);
+      setActionMessage(`Directly updated photo for "${product.name}"!`);
+    } catch (err: any) {
+      console.error('Direct upload failed:', err);
+      setActionMessage(`Photo upload failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsUploadingDirect(null);
       setTimeout(() => setActionMessage(null), 3500);
     }
   };
@@ -570,6 +616,8 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       setShowAddProductModal(false);
       setNewProdName('');
       setNewProdDesc('');
+      setNewProdImage('/images/crystal-ice-cubes.jpg');
+      setNewProdBadge('New Arrival');
       setNewProdPrice1kg(8);
       setNewProdPrice5kg(40);
       setNewProdPrice10kg(80);
@@ -1470,14 +1518,40 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                         <div>
                           <div className="flex items-start justify-between gap-3 mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                              {/* Direct photo upload thumbnail */}
+                              <div className="relative w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-slate-900 border-2 border-amber-300 shadow-xs group">
                                 <img
                                   src={product.image}
                                   alt={product.name}
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
                                 />
+                                {isUploadingDirect === product.id ? (
+                                  <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-amber-300">
+                                    <RefreshCw className="w-5 h-5 animate-spin mb-0.5" />
+                                    <span className="text-[8px] font-black uppercase">Saving...</span>
+                                  </div>
+                                ) : (
+                                  <label
+                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer"
+                                    title="Click to directly upload and replace photo"
+                                  >
+                                    <Camera className="w-4 h-4 text-amber-300 mb-0.5" />
+                                    <span className="text-[8px] font-black uppercase text-amber-300">Upload</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleDirectCardImageUpload(product, file);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </label>
+                                )}
                               </div>
+
                               <div>
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-heading font-black text-base text-[#111827]">
@@ -1502,11 +1576,30 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                             <div className="flex items-center gap-1.5 shrink-0">
                               {!isEditing ? (
                                 <>
+                                  {/* Direct Upload Photo Quick Button */}
+                                  <label
+                                    className="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-[#FED74C] text-[#111827] border border-amber-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                                    title="Directly upload new image file for this product"
+                                  >
+                                    <Upload className="w-3.5 h-3.5 text-amber-900" />
+                                    <span className="hidden sm:inline text-[11px] font-black">Upload Photo</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleDirectCardImageUpload(product, file);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </label>
+
                                   <button
                                     type="button"
                                     onClick={() => handleStartEditProduct(product)}
                                     className="p-2 rounded-xl bg-amber-50 hover:bg-[#FED74C] text-[#111827] border border-amber-200 transition-colors cursor-pointer"
-                                    title="Edit product prices & stock"
+                                    title="Edit product details, photo & prices"
                                   >
                                     <Edit2 className="w-4 h-4" />
                                   </button>
@@ -1531,83 +1624,168 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                             </div>
                           </div>
 
-                          <p className="text-xs text-slate-600 font-medium mb-4 line-clamp-2">
-                            {product.description}
-                          </p>
+                          {!isEditing && (
+                            <p className="text-xs text-slate-600 font-medium mb-4 line-clamp-2">
+                              {product.description}
+                            </p>
+                          )}
                         </div>
 
-                        {/* Price Management Section */}
+                        {/* Price Management / Full Editor Section */}
                         <div className="pt-3 border-t border-slate-100">
-                          <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
-                            {isEditing ? 'Edit Pricing Per Bag Size (PHP ₱):' : 'Current Price Per Bag Size:'}
-                          </div>
-
                           {!isEditing ? (
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                              <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
-                                <div className="text-[10px] uppercase font-bold text-slate-500">1kg Personal</div>
-                                <div className="font-heading font-black text-base text-[#111827]">
-                                  ₱{opt1 ? opt1.price : 8}
+                            <>
+                              <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                                Current Price Per Bag Size:
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                                  <div className="text-[10px] uppercase font-bold text-slate-500">1kg Personal</div>
+                                  <div className="font-heading font-black text-base text-[#111827]">
+                                    ₱{opt1 ? opt1.price : 8}
+                                  </div>
+                                </div>
+                                <div className="p-2.5 rounded-2xl bg-amber-100/60 border border-amber-300">
+                                  <div className="text-[10px] uppercase font-bold text-slate-600">5kg Standard</div>
+                                  <div className="font-heading font-black text-base text-[#111827]">
+                                    ₱{opt5 ? opt5.price : product.price || 40}
+                                  </div>
+                                </div>
+                                <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                                  <div className="text-[10px] uppercase font-bold text-slate-500">10kg Commercial</div>
+                                  <div className="font-heading font-black text-base text-[#111827]">
+                                    ₱{opt10 ? opt10.price : 80}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="p-2.5 rounded-2xl bg-amber-100/60 border border-amber-300">
-                                <div className="text-[10px] uppercase font-bold text-slate-600">5kg Standard</div>
-                                <div className="font-heading font-black text-base text-[#111827]">
-                                  ₱{opt5 ? opt5.price : product.price || 40}
-                                </div>
-                              </div>
-                              <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
-                                <div className="text-[10px] uppercase font-bold text-slate-500">10kg Commercial</div>
-                                <div className="font-heading font-black text-base text-[#111827]">
-                                  ₱{opt10 ? opt10.price : 80}
-                                </div>
-                              </div>
-                            </div>
+                            </>
                           ) : (
-                            <div className="space-y-3 bg-amber-50/50 p-3 rounded-2xl border border-amber-200">
-                              <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-4 bg-amber-50/60 p-4 rounded-3xl border border-amber-300">
+                              <div className="flex items-center justify-between pb-2 border-b border-amber-200">
+                                <span className="font-heading font-black text-xs uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                                  <Edit2 className="w-3.5 h-3.5 text-amber-800" />
+                                  Edit Product Details & Photo
+                                </span>
+                              </div>
+
+                              {/* Direct Image Uploader for editing existing product */}
+                              <div className="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs">
+                                <ImageUploader
+                                  value={editImage}
+                                  onChange={setEditImage}
+                                  label="Product Photo (Direct Upload)"
+                                  helperText="Upload any image directly from your phone/computer, drag & drop, or paste from clipboard"
+                                />
+                              </div>
+
+                              {/* Product Name, Category & Badge */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
-                                    1kg Price (₱)
+                                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                                    Product Name
                                   </label>
                                   <input
-                                    type="number"
-                                    min={1}
-                                    step="1"
-                                    value={editPrice1kg}
-                                    onChange={(e) => setEditPrice1kg(Math.max(1, parseInt(e.target.value) || 0))}
-                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="w-full px-3 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
                                   />
                                 </div>
-                                <div>
-                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
-                                    5kg Price (₱)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    step="1"
-                                    value={editPrice5kg}
-                                    onChange={(e) => setEditPrice5kg(Math.max(1, parseInt(e.target.value) || 0))}
-                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
-                                    10kg Price (₱)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    step="1"
-                                    value={editPrice10kg}
-                                    onChange={(e) => setEditPrice10kg(Math.max(1, parseInt(e.target.value) || 0))}
-                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                  />
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                                      Category
+                                    </label>
+                                    <select
+                                      value={editCategory}
+                                      onChange={(e) => setEditCategory(e.target.value)}
+                                      className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    >
+                                      <option value="Cubes">Cubes</option>
+                                      <option value="Tubes">Tubes</option>
+                                      <option value="Crushed">Crushed</option>
+                                      <option value="Block">Block</option>
+                                      <option value="Specialty">Specialty</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                                      Badge
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Best Seller"
+                                      value={editBadge}
+                                      onChange={(e) => setEditBadge(e.target.value)}
+                                      className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between pt-1">
+                              {/* Description */}
+                              <div>
+                                <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">
+                                  Short Description
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editDesc}
+                                  onChange={(e) => setEditDesc(e.target.value)}
+                                  className="w-full px-3 py-1.5 rounded-xl bg-white border border-amber-300 font-medium text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                />
+                              </div>
+
+                              {/* Pricing per size */}
+                              <div>
+                                <div className="text-[10px] font-black uppercase text-slate-700 mb-1.5">
+                                  Pricing By Bag Size (PHP ₱)
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                                      1kg Price (₱)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      step="1"
+                                      value={editPrice1kg}
+                                      onChange={(e) => setEditPrice1kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                      className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                                      5kg Price (₱)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      step="1"
+                                      value={editPrice5kg}
+                                      onChange={(e) => setEditPrice5kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                      className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                                      10kg Price (₱)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      step="1"
+                                      value={editPrice10kg}
+                                      onChange={(e) => setEditPrice10kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                      className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-amber-200">
                                 <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
                                   <input
                                     type="checkbox"
@@ -1618,14 +1796,23 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                                   <span>In Stock (Available for ordering)</span>
                                 </label>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveProductPrices(product)}
-                                  className="px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
-                                >
-                                  <Save className="w-3.5 h-3.5" />
-                                  <span>Save Prices</span>
-                                </button>
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingProductId(null)}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-black bg-white border border-slate-300 cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveProductPrices(product)}
+                                    className="px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                    <span>Save Changes</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -1768,31 +1955,14 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Product Photo URL</label>
-                  <input
-                    type="text"
-                    placeholder="/images/crystal-ice-cubes.jpg or https://..."
+                <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                  <ImageUploader
                     value={newProdImage}
-                    onChange={(e) => setNewProdImage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    onChange={setNewProdImage}
+                    label="Product Photo (Direct Upload)"
+                    helperText="Upload any picture directly from your phone or computer, drag & drop, or paste from clipboard. Auto-compressed for instant loading."
+                    required
                   />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewProdImage('/images/crystal-ice-cubes.jpg')}
-                      className="text-[11px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg font-bold"
-                    >
-                      Use Cubes Image
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewProdImage('/images/purified-tube-ice.jpg')}
-                      className="text-[11px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg font-bold"
-                    >
-                      Use Tubes Image
-                    </button>
-                  </div>
                 </div>
 
                 <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
