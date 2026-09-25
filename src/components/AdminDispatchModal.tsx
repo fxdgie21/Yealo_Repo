@@ -109,7 +109,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   const [newProdPrice1kg, setNewProdPrice1kg] = useState<number>(8);
   const [newProdPrice5kg, setNewProdPrice5kg] = useState<number>(40);
   const [newProdPrice10kg, setNewProdPrice10kg] = useState<number>(80);
-  const [newProdImage, setNewProdImage] = useState<string>('/images/crystal-ice-cubes.jpg');
+  const [newProdImage, setNewProdImage] = useState<string>('');
   const [newProdBadge, setNewProdBadge] = useState<string>('New Arrival');
   const [newProdPackaging, setNewProdPackaging] = useState<string>('Hygienic sealed Yealo polybag');
 
@@ -616,7 +616,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       setShowAddProductModal(false);
       setNewProdName('');
       setNewProdDesc('');
-      setNewProdImage('/images/crystal-ice-cubes.jpg');
+      setNewProdImage('');
       setNewProdBadge('New Arrival');
       setNewProdPrice1kg(8);
       setNewProdPrice5kg(40);
@@ -1955,14 +1955,32 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border-2 border-amber-300">
                   <ImageUploader
                     value={newProdImage}
                     onChange={setNewProdImage}
-                    label="Product Photo (Direct Upload)"
-                    helperText="Upload any picture directly from your phone or computer, drag & drop, or paste from clipboard. Auto-compressed for instant loading."
-                    required
+                    label="Product Image (Upload from Device)"
+                    helperText="Pick any photo from your phone or computer. It will automatically optimize and upload directly."
                   />
+                  {!newProdImage && (
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-amber-200/80">
+                      <span className="text-[10px] font-bold text-slate-500">Or use standard sample:</span>
+                      <button
+                        type="button"
+                        onClick={() => setNewProdImage('/images/crystal-ice-cubes.jpg')}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-amber-200 hover:bg-amber-100 text-slate-700 cursor-pointer"
+                      >
+                        Sample Cubes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewProdImage('/images/pure-tube-ice.jpg')}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-amber-200 hover:bg-amber-100 text-slate-700 cursor-pointer"
+                      >
+                        Sample Tubes
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
