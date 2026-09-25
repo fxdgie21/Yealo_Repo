@@ -37,6 +37,12 @@ import {
   Image as ImageIcon,
   Eye,
   EyeOff,
+  User,
+  UserCheck,
+  UserPlus,
+  Bike,
+  Navigation,
+  MessageSquare,
 } from 'lucide-react';
 import {
   collection,
@@ -49,8 +55,9 @@ import {
   query,
 } from 'firebase/firestore';
 import { db, deleteOrderPermanently } from '../lib/firebase';
-import { OrderRecord, Product, ProductBagOption } from '../types';
+import { OrderRecord, Product, ProductBagOption, Rider } from '../types';
 import { useProducts } from '../context/ProductsContext';
+import { useRiders } from '../context/RidersContext';
 import { ImageUploader } from './ImageUploader';
 import { processAndCompressImage } from '../lib/imageUpload';
 
@@ -85,11 +92,50 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Tabs: 'orders' | 'products'
-  const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
+  // Tabs: 'orders' | 'products' | 'riders'
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'riders'>('orders');
 
   // Products context for managing prices and inventory
   const { products, updateProduct, addProduct, deleteProduct, resetToDefaults } = useProducts();
+
+  // Riders context for delivery fleet management
+  const {
+    riders,
+    addRider,
+    updateRider,
+    deleteRider,
+    resetRidersToDefaults,
+  } = useRiders();
+
+  // Rider filtering & search
+  const [riderSearchQuery, setRiderSearchQuery] = useState('');
+  const [riderStatusFilter, setRiderStatusFilter] = useState<'all' | 'Available' | 'On Delivery' | 'Off Duty'>('all');
+
+  // Add rider modal state
+  const [showAddRiderModal, setShowAddRiderModal] = useState(false);
+  const [newRiderName, setNewRiderName] = useState('');
+  const [newRiderPhone, setNewRiderPhone] = useState('');
+  const [newRiderVehicle, setNewRiderVehicle] = useState('Insulated Cold-Box Tricycle');
+  const [newRiderPlate, setNewRiderPlate] = useState('');
+  const [newRiderZone, setNewRiderZone] = useState('Science City of Muñoz');
+  const [newRiderStatus, setNewRiderStatus] = useState<'Available' | 'On Delivery' | 'Off Duty'>('Available');
+  const [newRiderNotes, setNewRiderNotes] = useState('');
+  const [isSavingRider, setIsSavingRider] = useState(false);
+
+  // Edit rider modal state
+  const [editingRider, setEditingRider] = useState<Rider | null>(null);
+  const [editRiderName, setEditRiderName] = useState('');
+  const [editRiderPhone, setEditRiderPhone] = useState('');
+  const [editRiderVehicle, setEditRiderVehicle] = useState('');
+  const [editRiderPlate, setEditRiderPlate] = useState('');
+  const [editRiderZone, setEditRiderZone] = useState('');
+  const [editRiderStatus, setEditRiderStatus] = useState<'Available' | 'On Delivery' | 'Off Duty'>('Available');
+  const [editRiderNotes, setEditRiderNotes] = useState('');
+  const [isUpdatingRider, setIsUpdatingRider] = useState(false);
+
+  // Delete rider state
+  const [riderToDelete, setRiderToDelete] = useState<Rider | null>(null);
+  const [isDeletingRider, setIsDeletingRider] = useState(false);
 
   // Product edit modal / inline edit state
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -408,17 +454,36 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   // Status transition helper
   const handleUpdateStatus = async (orderId: string, newStatus: OrderRecord['status']) => {
     try {
-      await updateDoc(doc(db, 'orders', orderId), {
+      const order = orders.find((o) => o.id === orderId);
+      const updateData: any = {
         status: newStatus,
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      // If moving to Out for Delivery and no rider assigned yet, auto-assign first available rider
+      if (newStatus === 'Out for Delivery' && (!order?.riderName || !order?.riderId)) {
+        const availableRider = riders.find((r) => r.status === 'Available') || riders[0];
+        if (availableRider) {
+          updateData.riderId = availableRider.id;
+          updateData.riderName = availableRider.name;
+          updateData.riderPhone = availableRider.phone;
+          updateData.vehicleType = availableRider.vehicleType;
+          updateData.riderPlate = availableRider.plateNumber;
+        }
+      }
+
+      await updateDoc(doc(db, 'orders', orderId), updateData);
 
       // Update local state smoothly
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, ...updateData, status: newStatus } : o))
       );
 
-      setActionMessage(`Order marked as "${newStatus}"`);
+      setActionMessage(
+        updateData.riderName && !order?.riderName
+          ? `Order #${order?.orderNumber || ''} dispatched with ${updateData.riderName}!`
+          : `Order marked as "${newStatus}"`
+      );
       setTimeout(() => setActionMessage(null), 3000);
     } catch (err) {
       console.warn('Firestore update fallback:', err);
@@ -646,6 +711,173 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     }
   };
 
+  // Rider Fleet Management Handlers
+  const handleOpenAddRider = () => {
+    setNewRiderName('');
+    setNewRiderPhone('');
+    setNewRiderVehicle('Insulated Cold-Box Tricycle');
+    setNewRiderPlate('');
+    setNewRiderZone('Science City of Muñoz');
+    setNewRiderStatus('Available');
+    setNewRiderNotes('');
+    setShowAddRiderModal(true);
+  };
+
+  const handleCreateRider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRiderName.trim() || !newRiderPhone.trim()) {
+      alert('Please provide rider name and contact phone number');
+      return;
+    }
+    setIsSavingRider(true);
+    try {
+      const slug = newRiderName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const newId = `rider-${slug || 'fleet'}-${Date.now().toString().slice(-4)}`;
+      const newRider: Rider = {
+        id: newId,
+        name: newRiderName.trim(),
+        phone: newRiderPhone.trim(),
+        vehicleType: newRiderVehicle.trim() || 'Insulated Cold-Box Tricycle',
+        plateNumber: newRiderPlate.trim() || 'TODA Registered',
+        assignedZone: newRiderZone.trim() || 'Science City of Muñoz',
+        status: newRiderStatus,
+        notes: newRiderNotes.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addRider(newRider);
+      setShowAddRiderModal(false);
+      setActionMessage(`Rider "${newRider.name}" registered to delivery fleet!`);
+      setTimeout(() => setActionMessage(null), 3500);
+    } catch (err: any) {
+      alert(`Failed to add rider: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSavingRider(false);
+    }
+  };
+
+  const handleStartEditRider = (r: Rider) => {
+    setEditingRider(r);
+    setEditRiderName(r.name);
+    setEditRiderPhone(r.phone);
+    setEditRiderVehicle(r.vehicleType);
+    setEditRiderPlate(r.plateNumber);
+    setEditRiderZone(r.assignedZone);
+    setEditRiderStatus(r.status);
+    setEditRiderNotes(r.notes || '');
+  };
+
+  const handleSaveRiderEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRider) return;
+    if (!editRiderName.trim() || !editRiderPhone.trim()) {
+      alert('Please provide rider name and contact phone number');
+      return;
+    }
+    setIsUpdatingRider(true);
+    try {
+      const updated: Rider = {
+        ...editingRider,
+        name: editRiderName.trim(),
+        phone: editRiderPhone.trim(),
+        vehicleType: editRiderVehicle.trim(),
+        plateNumber: editRiderPlate.trim(),
+        assignedZone: editRiderZone.trim(),
+        status: editRiderStatus,
+        notes: editRiderNotes.trim() || undefined,
+      };
+
+      await updateRider(updated);
+      setEditingRider(null);
+      setActionMessage(`Updated rider details for "${updated.name}"!`);
+      setTimeout(() => setActionMessage(null), 3500);
+    } catch (err: any) {
+      alert(`Failed to update rider: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsUpdatingRider(false);
+    }
+  };
+
+  const handleQuickRiderStatusChange = async (rider: Rider, status: Rider['status']) => {
+    await updateRider({ ...rider, status });
+    setActionMessage(`${rider.name} status updated to "${status}"`);
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
+  const handleConfirmDeleteRider = async () => {
+    if (!riderToDelete) return;
+    setIsDeletingRider(true);
+    try {
+      await deleteRider(riderToDelete.id);
+      setActionMessage(`Rider "${riderToDelete.name}" removed from delivery fleet.`);
+      setRiderToDelete(null);
+      setTimeout(() => setActionMessage(null), 3500);
+    } catch (err: any) {
+      alert(`Failed to delete rider: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsDeletingRider(false);
+    }
+  };
+
+  const handleAssignRiderToOrder = async (orderId: string, riderId: string) => {
+    const selected = riders.find((r) => r.id === riderId);
+    try {
+      const updateData = selected
+        ? {
+            riderId: selected.id,
+            riderName: selected.name,
+            riderPhone: selected.phone,
+            vehicleType: selected.vehicleType,
+            riderPlate: selected.plateNumber,
+            updatedAt: serverTimestamp(),
+          }
+        : {
+            riderId: '',
+            riderName: '',
+            riderPhone: '',
+            vehicleType: '',
+            riderPlate: '',
+            updatedAt: serverTimestamp(),
+          };
+
+      await updateDoc(doc(db, 'orders', orderId), updateData);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                riderId: selected?.id,
+                riderName: selected?.name,
+                riderPhone: selected?.phone,
+                vehicleType: selected?.vehicleType,
+                riderPlate: selected?.plateNumber,
+              }
+            : o
+        )
+      );
+      setActionMessage(selected ? `Assigned "${selected.name}" to order!` : 'Rider unassigned from order');
+      setTimeout(() => setActionMessage(null), 3000);
+    } catch (err) {
+      console.warn('Assign rider fallback:', err);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                riderId: selected?.id,
+                riderName: selected?.name,
+                riderPhone: selected?.phone,
+                vehicleType: selected?.vehicleType,
+                riderPlate: selected?.plateNumber,
+              }
+            : o
+        )
+      );
+      setActionMessage(selected ? `Assigned "${selected.name}"` : 'Rider unassigned');
+      setTimeout(() => setActionMessage(null), 3000);
+    }
+  };
+
   // Metrics Calculations
   const totalSales = orders.reduce((sum, ord) => sum + (ord.status !== 'Cancelled' ? ord.total : 0), 0);
   const totalBags = orders.reduce((sum, ord) => sum + (ord.status !== 'Cancelled' ? ord.quantity : 0), 0);
@@ -673,17 +905,35 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     return matchesStatus && matchesSearch;
   });
 
+  // Filtered delivery riders list
+  const filteredRiders = riders.filter((rider) => {
+    const matchesStatus =
+      riderStatusFilter === 'all' ? true : rider.status === riderStatusFilter;
+    const q = riderSearchQuery.toLowerCase();
+    const matchesSearch =
+      rider.name.toLowerCase().includes(q) ||
+      rider.phone.toLowerCase().includes(q) ||
+      rider.vehicleType.toLowerCase().includes(q) ||
+      rider.plateNumber.toLowerCase().includes(q) ||
+      rider.assignedZone.toLowerCase().includes(q);
+    return matchesStatus && matchesSearch;
+  });
+
+  const availableRidersCount = riders.filter((r) => r.status === 'Available').length;
+  const onDeliveryRidersCount = riders.filter((r) => r.status === 'On Delivery').length;
+  const offDutyRidersCount = riders.filter((r) => r.status === 'Off Duty').length;
+
   if (!isOpen) return null;
 
   const modalContent = (
     <div
       id="admin-dispatch-modal"
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-1 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-xs overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-6xl bg-white text-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-300 overflow-hidden my-2 sm:my-4 max-h-[96vh] flex flex-col"
+        className="relative w-full max-w-6xl bg-white text-slate-900 rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-amber-300 overflow-hidden my-0 sm:my-4 h-[100dvh] sm:h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar matching landing page header */}
@@ -711,10 +961,10 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               {isAuthenticated && (
                 <>
-                  {/* Sound alert toggle */}
+                  {/* Sound alert toggle (Desktop) */}
                   <button
                     onClick={() => setSoundEnabled((prev) => !prev)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                    className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
                       soundEnabled
                         ? 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
                         : 'bg-black/15 text-slate-700 border-black/15'
@@ -726,13 +976,13 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                     ) : (
                       <VolumeX className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     )}
-                    <span className="hidden md:inline">{soundEnabled ? 'Sound ON' : 'Muted'}</span>
+                    <span>{soundEnabled ? 'Sound ON' : 'Muted'}</span>
                   </button>
 
-                  {/* Browser Notification Status / Request */}
+                  {/* Browser Notification Status / Request (Desktop) */}
                   <button
                     onClick={requestNotifPermission}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
+                    className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer shadow-2xs ${
                       notifPermission === 'granted'
                         ? 'bg-emerald-600 text-white border-emerald-700'
                         : 'bg-white text-slate-900 border-amber-300 hover:bg-slate-50'
@@ -740,33 +990,18 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                     title="Browser push alert permission for new orders"
                   >
                     <Bell className="w-3.5 h-3.5 shrink-0" />
-                    <span className="hidden md:inline">
-                      {notifPermission === 'granted' ? 'Alerts ON' : 'Alerts'}
-                    </span>
+                    <span>{notifPermission === 'granted' ? 'Alerts ON' : 'Alerts'}</span>
                   </button>
 
-                  {/* Fix & Sync Database Button */}
+                  {/* Fix & Sync Database Button (Desktop) */}
                   <button
                     onClick={handleFixAndSyncDatabase}
                     disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 hover:text-black border border-amber-300 hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
+                    className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 hover:text-black border border-amber-300 hover:bg-amber-50 transition-colors cursor-pointer shadow-2xs"
                     title="Check database health and re-sync all live orders"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 text-amber-700 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span className="hidden lg:inline">{isSyncing ? 'Syncing...' : 'Fix & Sync DB'}</span>
-                  </button>
-
-                  {/* Test Sound Chime */}
-                  <button
-                    onClick={() => {
-                      playAlertChime();
-                      setActionMessage('Sound chime tested successfully!');
-                      setTimeout(() => setActionMessage(null), 2500);
-                    }}
-                    className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-800 bg-white/70 hover:bg-white border border-amber-300 transition-colors cursor-pointer"
-                    title="Test incoming order chime sound"
-                  >
-                    Test Sound
+                    <span>{isSyncing ? 'Syncing...' : 'Sync DB'}</span>
                   </button>
 
                   {/* Lock PIN */}
@@ -943,21 +1178,23 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
         ) : (
           /* MAIN DISPATCH DASHBOARD BODY */
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/60">
-            {/* Top Navigation Tabs: Orders Dispatch vs Product & Pricing Management */}
-            <div className="flex items-center justify-between border-b border-amber-300 pb-3 gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
+            {/* Top Navigation Tabs: Orders Dispatch vs Product & Pricing Management vs Fleet */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-b border-amber-300/80 pb-3 gap-3">
+              {/* Responsive Segmented Tab Control */}
+              <div className="flex items-center gap-1 p-1 bg-slate-200/80 rounded-2xl w-full sm:w-auto overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setActiveTab('orders')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                  className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
                     activeTab === 'orders'
                       ? 'bg-[#111827] text-[#FDD023] shadow-md ring-2 ring-[#111827]/20'
-                      : 'bg-white text-slate-700 hover:bg-amber-100/70 border border-slate-200'
+                      : 'text-slate-700 hover:text-black hover:bg-white/60'
                   }`}
                 >
-                  <Truck className="w-4 h-4" />
-                  <span>Orders & Dispatch</span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-1">
+                  <Truck className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Orders & Dispatch</span>
+                  <span className="sm:hidden">Orders</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-0.5">
                     {orders.length}
                   </span>
                 </button>
@@ -965,29 +1202,48 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('products')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                  className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
                     activeTab === 'products'
                       ? 'bg-[#111827] text-[#FDD023] shadow-md ring-2 ring-[#111827]/20'
-                      : 'bg-white text-slate-700 hover:bg-amber-100/70 border border-slate-200'
+                      : 'text-slate-700 hover:text-black hover:bg-white/60'
                   }`}
                 >
-                  <Tag className="w-4 h-4" />
-                  <span>Products & Pricing</span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-1">
+                  <Tag className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Products & Pricing</span>
+                  <span className="sm:hidden">Catalog</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-0.5">
                     {products.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('riders')}
+                  className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
+                    activeTab === 'riders'
+                      ? 'bg-[#111827] text-[#FDD023] shadow-md ring-2 ring-[#111827]/20'
+                      : 'text-slate-700 hover:text-black hover:bg-white/60'
+                  }`}
+                >
+                  <Bike className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Delivery Fleet</span>
+                  <span className="sm:hidden">Riders</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-0.5">
+                    {riders.length}
                   </span>
                 </button>
               </div>
 
+              {/* Action Buttons for Products Tab */}
               {activeTab === 'products' && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-end">
                   <button
                     type="button"
                     onClick={() => setShowAddProductModal(true)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-[#FED74C] text-[#111827] border border-amber-400 shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-[#FED74C] text-[#111827] border border-amber-400 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Add New Product</span>
+                    <span>Add Product</span>
                   </button>
 
                   <button
@@ -1001,6 +1257,36 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                     }}
                     className="px-3 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
                     title="Reset product catalog to standard 1kg P8, 5kg P40, 10kg P80"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="hidden sm:inline">Reset Defaults</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Action Buttons for Riders Tab */}
+              {activeTab === 'riders' && (
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddRider}
+                    className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-[#FED74C] text-[#111827] border border-amber-400 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Add Rider</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm('Reset delivery fleet roster to default Yealo Ice riders?')) {
+                        await resetRidersToDefaults();
+                        setActionMessage('Fleet reset to default riders!');
+                        setTimeout(() => setActionMessage(null), 3000);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+                    title="Reset fleet to standard riders"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                     <span className="hidden sm:inline">Reset Defaults</span>
@@ -1397,17 +1683,74 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                         </div>
                       )}
 
-                      {/* Status Action Buttons Bar */}
-                      <div className="pt-3 border-t border-amber-100 flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
-                          <span>Set Status:</span>
+                      {/* Assigned Delivery Rider Bar */}
+                      <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/90 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-[#111827] text-[#FDD023] flex items-center justify-center font-black shrink-0 shadow-2xs">
+                            <Bike className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">
+                              Assigned Delivery Rider
+                            </span>
+                            {order.riderName ? (
+                              <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+                                <span className="font-black text-[#111827]">
+                                  {order.riderName}
+                                </span>
+                                {order.riderPhone && (
+                                  <a
+                                    href={`tel:${order.riderPhone}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[11px] transition-colors"
+                                    title="Call rider"
+                                  >
+                                    <Phone className="w-2.5 h-2.5" />
+                                    <span>{order.riderPhone}</span>
+                                  </a>
+                                )}
+                                {order.vehicleType && (
+                                  <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                                    {order.vehicleType} {order.riderPlate ? `• ${order.riderPlate}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-amber-800 text-[11px] font-bold italic pt-0.5 block">
+                                No specific rider assigned yet
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={order.riderId || ''}
+                            onChange={(e) => handleAssignRiderToOrder(order.id, e.target.value)}
+                            className="text-xs font-bold py-1.5 px-3 rounded-xl bg-white border border-amber-300 text-slate-800 focus:outline-none focus:border-[#111827] cursor-pointer shadow-2xs"
+                            title="Assign a registered fleet rider to this delivery"
+                          >
+                            <option value="">{order.riderName ? 'Change Rider...' : 'Assign Rider...'}</option>
+                            {riders.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name} ({r.vehicleType} • {r.status})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Status Action Buttons Bar */}
+                      <div className="pt-3 border-t border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="text-[11px] font-bold text-slate-500 flex items-center justify-between sm:justify-start gap-1.5">
+                          <span>Set Fulfillment Status:</span>
+                          <span className="sm:hidden font-mono font-bold text-slate-700">#{order.orderNumber}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                           {/* Pending Button */}
                           <button
                             onClick={() => handleUpdateStatus(order.id, 'Pending')}
-                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-3 py-2 sm:py-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
                               order.status === 'Pending'
                                 ? 'bg-[#FED74C] text-[#111827] shadow-2xs font-black border border-amber-400'
                                 : 'bg-slate-100 text-slate-700 hover:bg-amber-100'
@@ -1419,7 +1762,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Preparing Button */}
                           <button
                             onClick={() => handleUpdateStatus(order.id, 'Preparing')}
-                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-3 py-2 sm:py-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
                               order.status === 'Preparing'
                                 ? 'bg-blue-600 text-white shadow-2xs font-black'
                                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -1431,7 +1774,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Out for Delivery Button */}
                           <button
                             onClick={() => handleUpdateStatus(order.id, 'Out for Delivery')}
-                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                            className={`px-3 py-2 sm:py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 text-center ${
                               order.status === 'Out for Delivery'
                                 ? 'bg-purple-600 text-white shadow-2xs font-black'
                                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -1444,7 +1787,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Delivered Button */}
                           <button
                             onClick={() => handleUpdateStatus(order.id, 'Delivered')}
-                            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                            className={`px-3 py-2 sm:py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 text-center ${
                               order.status === 'Delivered'
                                 ? 'bg-emerald-600 text-white shadow-2xs font-black'
                                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -1457,7 +1800,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Print Receipt / Slip Button */}
                           <button
                             onClick={() => setSelectedOrderForReceipt(order)}
-                            className="px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-amber-300 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-2 sm:py-1 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-amber-300 hover:bg-amber-50 flex items-center justify-center gap-1 cursor-pointer"
                             title="View / Print Rider Delivery Slip"
                           >
                             <Printer className="w-3.5 h-3.5 text-amber-700 shrink-0" />
@@ -1467,7 +1810,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                           {/* Delete Order Button */}
                           <button
                             onClick={() => handleDeleteOrder(order)}
-                            className="px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-2 sm:py-1 rounded-xl text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                             title="Delete order permanently from database"
                           >
                             <Trash2 className="w-3.5 h-3.5 shrink-0" />
@@ -1835,6 +2178,336 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* TAB 3: DELIVERY FLEET & RIDERS MANAGEMENT */}
+            {activeTab === 'riders' && (
+              <div className="space-y-6">
+                {/* Intro summary banner */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black shrink-0 shadow-xs">
+                      <Bike className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-heading font-black text-lg text-[#111827]">
+                        Delivery Fleet & Rider Roster
+                      </h4>
+                      <p className="text-xs text-slate-600 font-medium">
+                        Manage delivery riders, mobile contact numbers, vehicle assignments, TODA registration, and delivery coverage zones.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={handleOpenAddRider}
+                      className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-[#FED74C] text-[#111827] border border-amber-400 shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Add New Rider</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 1. Fleet Metrics Bar */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                  {/* Total Riders */}
+                  <div className="p-4 rounded-2xl bg-white border border-amber-200 shadow-xs">
+                    <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
+                      <span>Total Fleet</span>
+                      <div className="p-1 rounded-full bg-amber-100 text-amber-900">
+                        <Bike className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="font-heading font-black text-2xl text-[#111827]">
+                      {riders.length}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      Registered Drivers
+                    </div>
+                  </div>
+
+                  {/* Available & Ready */}
+                  <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs">
+                    <div className="flex items-center justify-between text-xs text-emerald-800 font-bold mb-1">
+                      <span>Available</span>
+                      <div className="p-1 rounded-full bg-emerald-100 text-emerald-700">
+                        <UserCheck className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="font-heading font-black text-2xl text-emerald-700">
+                      {availableRidersCount}
+                    </div>
+                    <div className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                      Ready for dispatch
+                    </div>
+                  </div>
+
+                  {/* On Delivery / In Transit */}
+                  <div className="p-4 rounded-2xl bg-white border border-purple-200 shadow-xs">
+                    <div className="flex items-center justify-between text-xs text-purple-800 font-bold mb-1">
+                      <span>On Road</span>
+                      <div className="p-1 rounded-full bg-purple-100 text-purple-700">
+                        <Truck className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="font-heading font-black text-2xl text-purple-700">
+                      {onDeliveryRidersCount}
+                    </div>
+                    <div className="text-[11px] text-purple-600 font-medium mt-0.5">
+                      Delivering ice orders
+                    </div>
+                  </div>
+
+                  {/* Off Duty */}
+                  <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                    <div className="flex items-center justify-between text-xs text-slate-600 font-bold mb-1">
+                      <span>Off Duty</span>
+                      <div className="p-1 rounded-full bg-slate-100 text-slate-600">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <div className="font-heading font-black text-2xl text-slate-700">
+                      {offDutyRidersCount}
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      On break / Rest day
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Search & Filter Bar */}
+                <div className="bg-white p-3 rounded-2xl border border-amber-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search rider name, phone, plate #, vehicle, or zone..."
+                      value={riderSearchQuery}
+                      onChange={(e) => setRiderSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#111827] focus:bg-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                    {(['all', 'Available', 'On Delivery', 'Off Duty'] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setRiderStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
+                          riderStatusFilter === st
+                            ? 'bg-[#111827] text-[#FDD023] shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-amber-100'
+                        }`}
+                      >
+                        {st === 'all' ? `All Riders (${riders.length})` : `${st}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Rider Cards Grid */}
+                {filteredRiders.length === 0 ? (
+                  <div className="bg-white p-12 rounded-3xl border border-dashed border-amber-300 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
+                      <Bike className="w-6 h-6" />
+                    </div>
+                    <h5 className="font-heading font-black text-base text-slate-800">
+                      No delivery riders found
+                    </h5>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      {riderSearchQuery
+                        ? `No riders matching "${riderSearchQuery}". Try clearing search or change filter.`
+                        : 'No riders registered yet. Add your first delivery rider below.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddRider}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Add New Rider</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredRiders.map((rider) => {
+                      const activeAssignedCount = orders.filter(
+                        (o) => o.riderId === rider.id && o.status !== 'Delivered' && o.status !== 'Cancelled'
+                      ).length;
+
+                      const statusBadgeStyles = {
+                        Available: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                        'On Delivery': 'bg-purple-100 text-purple-800 border-purple-300',
+                        'Off Duty': 'bg-slate-100 text-slate-700 border-slate-300',
+                      };
+
+                      return (
+                        <div
+                          key={rider.id}
+                          className="bg-white rounded-3xl border-2 border-amber-200/90 hover:border-amber-300 p-5 shadow-sm space-y-4 flex flex-col justify-between transition-all"
+                        >
+                          <div>
+                            {/* Rider Top Info */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black text-base shadow-xs shrink-0">
+                                  {rider.name
+                                    .split(' ')
+                                    .map((n) => n[0])
+                                    .slice(0, 2)
+                                    .join('')
+                                    .toUpperCase()}
+                                </div>
+                                <div>
+                                  <h4 className="font-heading font-black text-base text-[#111827] leading-tight">
+                                    {rider.name}
+                                  </h4>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium pt-0.5">
+                                    <Phone className="w-3 h-3 text-emerald-600" />
+                                    <span>{rider.phone}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase border shrink-0 ${
+                                  statusBadgeStyles[rider.status] || 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {rider.status}
+                              </span>
+                            </div>
+
+                            {/* Details List */}
+                            <div className="space-y-2 text-xs border-t border-slate-100 pt-3">
+                              {/* Vehicle & Plate */}
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-slate-400 font-bold text-[11px] shrink-0">
+                                  Vehicle & Plate:
+                                </span>
+                                <div className="text-right">
+                                  <span className="font-bold text-[#111827] block">
+                                    {rider.vehicleType}
+                                  </span>
+                                  <span className="font-mono text-[11px] text-amber-800 font-bold block">
+                                    {rider.plateNumber}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Service Coverage Area */}
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-slate-400 font-bold text-[11px] shrink-0">
+                                  Coverage Hub:
+                                </span>
+                                <span className="font-medium text-slate-700 text-right">
+                                  {rider.assignedZone}
+                                </span>
+                              </div>
+
+                              {/* Active Orders */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-slate-400 font-bold text-[11px]">
+                                  Active Dispatches:
+                                </span>
+                                <span className={`font-black px-2 py-0.5 rounded-md text-[11px] ${
+                                  activeAssignedCount > 0
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {activeAssignedCount} ongoing {activeAssignedCount === 1 ? 'order' : 'orders'}
+                                </span>
+                              </div>
+
+                              {/* Equipment Notes */}
+                              {rider.notes && (
+                                <div className="p-2 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 font-medium italic mt-2">
+                                  "{rider.notes}"
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Status Buttons & Action Bar */}
+                          <div className="space-y-3 pt-3 border-t border-slate-100">
+                            {/* Fast Status Switcher */}
+                            <div>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                                Quick Status Toggle:
+                              </span>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(['Available', 'On Delivery', 'Off Duty'] as const).map((st) => (
+                                  <button
+                                    key={st}
+                                    type="button"
+                                    onClick={() => handleQuickRiderStatusChange(rider, st)}
+                                    className={`py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
+                                      rider.status === st
+                                        ? st === 'Available'
+                                          ? 'bg-emerald-600 text-white shadow-2xs'
+                                          : st === 'On Delivery'
+                                          ? 'bg-purple-600 text-white shadow-2xs'
+                                          : 'bg-slate-700 text-white shadow-2xs'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    {st === 'On Delivery' ? 'Delivering' : st}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Contact Links & Edit / Delete Buttons */}
+                            <div className="flex items-center justify-between gap-1.5 pt-1">
+                              <div className="flex items-center gap-1">
+                                <a
+                                  href={`tel:${rider.phone}`}
+                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors"
+                                  title="Call rider"
+                                >
+                                  <Phone className="w-3 h-3 text-emerald-600" />
+                                  <span>Call</span>
+                                </a>
+                                <a
+                                  href={`sms:${rider.phone}`}
+                                  className="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition-colors"
+                                  title="SMS rider"
+                                >
+                                  SMS
+                                </a>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditRider(rider)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-slate-800 border border-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                  title="Edit rider details"
+                                >
+                                  <Edit2 className="w-3 h-3 text-amber-700" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setRiderToDelete(rider)}
+                                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold cursor-pointer transition-colors"
+                                  title="Remove rider from roster"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -2067,6 +2740,403 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
           </div>
         )}
 
+        {/* ADD RIDER MODAL */}
+        {showAddRiderModal && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs overflow-y-auto"
+            onClick={() => setShowAddRiderModal(false)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border-2 border-amber-400 text-slate-900 my-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-amber-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg text-[#111827]">
+                      Register New Delivery Rider
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Add a driver to the Yealo Pure Ice dispatch fleet
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddRiderModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateRider} className="space-y-4 pt-4 text-xs">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Rider Full Name / Callsign *
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Kuya Arnel Ramos"
+                    value={newRiderName}
+                    onChange={(e) => setNewRiderName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-[#111827]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Contact Mobile Number *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. 0917-555-8812"
+                      value={newRiderPhone}
+                      onChange={(e) => setNewRiderPhone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Vehicle Type
+                    </label>
+                    <select
+                      value={newRiderVehicle}
+                      onChange={(e) => setNewRiderVehicle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    >
+                      <option value="Insulated Cold-Box Tricycle">Insulated Cold-Box Tricycle</option>
+                      <option value="Tricycle with Ice Cargo">Tricycle with Ice Cargo</option>
+                      <option value="Express Delivery Motorcycle (Twin Coolers)">Express Motorcycle (Twin Coolers)</option>
+                      <option value="Multicab / Small Delivery Truck">Multicab / Small Truck</option>
+                      <option value="Kolong-Kolong Heavy Carrier">Kolong-Kolong Heavy Carrier</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Plate / TODA Registration #
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Muñoz TODA #03 (Plate 4819-NE)"
+                      value={newRiderPlate}
+                      onChange={(e) => setNewRiderPlate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Primary Service Zone
+                    </label>
+                    <select
+                      value={newRiderZone}
+                      onChange={(e) => setNewRiderZone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    >
+                      <option value="Science City of Muñoz (Poblacion & CLSU Area)">Science City of Muñoz (Poblacion & CLSU Area)</option>
+                      <option value="Bantug, Maligaya, & Villa Neva">Bantug, Maligaya, & Villa Neva</option>
+                      <option value="San Jose City & Fast Rush Orders">San Jose City & Fast Rush Orders</option>
+                      <option value="Talavera & Baloc Area">Talavera & Baloc Area</option>
+                      <option value="All Coverage Zones">All Coverage Zones</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Initial Status
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['Available', 'On Delivery', 'Off Duty'] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setNewRiderStatus(st)}
+                        className={`py-2 rounded-xl font-bold border transition-all text-xs cursor-pointer ${
+                          newRiderStatus === st
+                            ? 'bg-[#111827] text-[#FDD023] border-[#111827] shadow-xs'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Equipment & Delivery Notes (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Equipped with 50kg foam chest, plastic ties, and ice tongs. Emergency phone: 0918-..."
+                    value={newRiderNotes}
+                    onChange={(e) => setNewRiderNotes(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827] resize-none"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddRiderModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingRider}
+                    className="px-6 py-2.5 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    {isSavingRider ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Registering...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Register Rider</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT RIDER MODAL */}
+        {editingRider && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs overflow-y-auto"
+            onClick={() => setEditingRider(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border-2 border-amber-400 text-slate-900 my-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-amber-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black">
+                    <Edit2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg text-[#111827]">
+                      Edit Rider Details
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Update phone, vehicle, plate, or active service zone
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingRider(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveRiderEdit} className="space-y-4 pt-4 text-xs">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Rider Full Name / Callsign *
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={editRiderName}
+                    onChange={(e) => setEditRiderName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-[#111827]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Contact Mobile Number *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={editRiderPhone}
+                      onChange={(e) => setEditRiderPhone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Vehicle Type
+                    </label>
+                    <input
+                      type="text"
+                      value={editRiderVehicle}
+                      onChange={(e) => setEditRiderVehicle(e.target.value)}
+                      placeholder="e.g. Insulated Cold-Box Tricycle"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Plate / TODA Registration #
+                    </label>
+                    <input
+                      type="text"
+                      value={editRiderPlate}
+                      onChange={(e) => setEditRiderPlate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      Primary Service Zone
+                    </label>
+                    <input
+                      type="text"
+                      value={editRiderZone}
+                      onChange={(e) => setEditRiderZone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Current Status
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['Available', 'On Delivery', 'Off Duty'] as const).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setEditRiderStatus(st)}
+                        className={`py-2 rounded-xl font-bold border transition-all text-xs cursor-pointer ${
+                          editRiderStatus === st
+                            ? 'bg-[#111827] text-[#FDD023] border-[#111827] shadow-xs'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Equipment & Delivery Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editRiderNotes}
+                    onChange={(e) => setEditRiderNotes(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827] resize-none"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRider(null)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingRider}
+                    className="px-6 py-2.5 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    {isUpdatingRider ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DELETE RIDER MODAL */}
+        {riderToDelete && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+            onClick={() => setRiderToDelete(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-rose-400 text-slate-900 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+
+              <div className="text-center">
+                <h4 className="font-heading font-black text-lg text-slate-900">
+                  Remove Delivery Rider?
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Are you sure you want to remove <strong className="text-black font-black">"{riderToDelete.name}"</strong> ({riderToDelete.vehicleType}) from the fleet roster?
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeletingRider}
+                  onClick={() => setRiderToDelete(null)}
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingRider}
+                  onClick={handleConfirmDeleteRider}
+                  className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isDeletingRider ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Removing...</span>
+                    </>
+                  ) : (
+                    <span>Remove</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PRINTABLE RIDER DELIVERY SLIP MODAL */}
         {selectedOrderForReceipt && (
           <div
@@ -2113,6 +3183,24 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                   <span className="font-black text-slate-900">
                     {selectedOrderForReceipt.quantity} bags
                   </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 items-start">
+                  <span className="text-slate-500 font-bold">Assigned Rider:</span>
+                  <div className="text-right">
+                    <span className="font-black text-slate-900 block">
+                      {selectedOrderForReceipt.riderName || 'Kuya Arnel Ramos'}
+                    </span>
+                    {selectedOrderForReceipt.riderPhone && (
+                      <span className="text-[11px] text-slate-600 font-mono block">
+                        {selectedOrderForReceipt.riderPhone}
+                      </span>
+                    )}
+                    {selectedOrderForReceipt.vehicleType && (
+                      <span className="text-[10px] text-slate-500 block">
+                        {selectedOrderForReceipt.vehicleType}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {selectedOrderForReceipt.additionalNotes && (
                   <div className="bg-amber-50 p-2 rounded-lg border border-amber-200 text-[11px] text-amber-900">

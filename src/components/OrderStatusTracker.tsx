@@ -10,11 +10,19 @@ import {
   AlertCircle,
   RefreshCw,
   Sparkles,
+  Star,
+  ThumbsUp,
+  Send,
+  Award,
+  Check,
+  Edit2,
+  Bike,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { OrderRecord } from '../types';
-import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { OrderRecord, ReviewItem } from '../types';
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useRiders } from '../context/RidersContext';
 
 interface OrderStatusTrackerProps {
   onOpenOrderModal?: () => void;
@@ -36,11 +44,21 @@ export interface OrderTrackingDetails {
   cityArea: string;
   landmark?: string;
   estimatedArrival: string;
+  riderId?: string;
   riderName: string;
   riderPhone: string;
   vehicleType: string;
   status: FulfillmentStatus;
   currentStepIndex: number;
+  review?: {
+    rating: number;
+    comment: string;
+    compliments?: string[];
+    submittedAt: string;
+    reviewerName?: string;
+    riderId?: string;
+    riderName?: string;
+  };
   steps: {
     title: string;
     titleTl: string;
@@ -358,13 +376,70 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
       // ignore
     }
 
-    // 4. Not found in database or local orders
+    // 4. Built-in interactive demo orders so visitors can immediately test the tracker
+    if (clean === 'YLO-94821' || clean === 'DEMO-1') {
+      const demoOrder = {
+        orderId: 'YLO-94821',
+        customerName: 'Christian Gomez',
+        phone: '0917-882-9901',
+        productName: 'Yealo Tube Ice',
+        bagSize: '5kg',
+        quantity: 4,
+        total: 160,
+        paymentMethod: 'Cash on Delivery (COD)',
+        deliveryAddress: 'CLSU Agro-Eco Park, Science City of Muñoz',
+        cityArea: 'Science City of Muñoz',
+        landmark: 'Near CLSU Main Gate',
+        estimatedArrival: '12 - 18 mins',
+        riderName: 'Kuya Arnel Ramos',
+        riderPhone: '0917-555-8812',
+        vehicleType: 'Insulated Cold-Box Tricycle (Muñoz TODA #03)',
+        status: 'Out for Delivery' as FulfillmentStatus,
+        currentStepIndex: 3,
+        steps: buildTrackingSteps('Out for Delivery', 'YLO-94821', 'CLSU Agro-Eco Park, Science City of Muñoz', '10:30 AM').steps,
+      };
+      setActiveTracking(demoOrder);
+      prevStatusRef.current = 'Out for Delivery';
+      setIsSearching(false);
+      setIsLiveConnected(true);
+      return;
+    }
+
+    if (clean === 'YLO-77102' || clean === 'DEMO-2') {
+      const demoOrder = {
+        orderId: 'YLO-77102',
+        customerName: 'Maria Elena Dela Cruz',
+        phone: '0928-444-1923',
+        productName: 'Yealo Cube Ice',
+        bagSize: '10kg',
+        quantity: 2,
+        total: 160,
+        paymentMethod: 'Cash on Delivery (COD)',
+        deliveryAddress: 'Maharlika Highway, tapat ng City Hall',
+        cityArea: 'San Jose City',
+        landmark: 'Beside Shell Station',
+        estimatedArrival: '25 - 35 mins',
+        riderName: 'Kuya Bong Dalisay',
+        riderPhone: '0928-444-1923',
+        vehicleType: 'Express Motorcycle with Twin Coolers',
+        status: 'Preparing' as FulfillmentStatus,
+        currentStepIndex: 2,
+        steps: buildTrackingSteps('Preparing', 'YLO-77102', 'Maharlika Highway, San Jose City', '11:15 AM').steps,
+      };
+      setActiveTracking(demoOrder);
+      prevStatusRef.current = 'Preparing';
+      setIsSearching(false);
+      setIsLiveConnected(true);
+      return;
+    }
+
+    // 5. Not found in database, local orders, or demo presets
     setActiveTracking(null);
     setIsLiveConnected(false);
     setSearchError(
       language === 'en'
-        ? `No active order found with ID "${clean}". Please verify your Order ID and try again, or place a new order.`
-        : `Walang nahanap na order na may ID na "${clean}". Paki-check ang inyong Order ID o mag-order ulit.`
+        ? `No active order found with ID "${clean}". Please verify your Order ID and try again, or try the quick demo buttons below.`
+        : `Walang nahanap na order na may ID na "${clean}". Paki-check ang inyong Order ID o subukan ang mga demo button sa ibaba.`
     );
     setIsSearching(false);
   };
@@ -497,27 +572,57 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             </button>
           </form>
 
-          {/* User's recent orders shortcuts if available */}
-          {recentOrderNumbers.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="text-slate-400 font-medium">
-                {language === 'en' ? 'Your recent orders:' : 'Inyong mga order kamakailan:'}
-              </span>
-              {recentOrderNumbers.map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => {
-                    setSearchInput(num);
-                    performLookup(num);
-                  }}
-                  className="px-2.5 py-1 rounded-lg font-mono text-xs font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 transition-all cursor-pointer"
-                >
-                  #{num}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* User's recent orders shortcuts & Instant Demo links */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
+            {recentOrderNumbers.length > 0 && (
+              <>
+                <span className="text-slate-400 font-medium">
+                  {language === 'en' ? 'Your orders:' : 'Inyong mga order:'}
+                </span>
+                {recentOrderNumbers.map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => {
+                      setSearchInput(num);
+                      performLookup(num);
+                    }}
+                    className="px-2.5 py-1 rounded-lg font-mono text-xs font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 hover:bg-amber-400/20 transition-all cursor-pointer"
+                  >
+                    #{num}
+                  </button>
+                ))}
+                <span className="text-slate-600">|</span>
+              </>
+            )}
+
+            {/* Quick Demo Testing Links */}
+            <span className="text-slate-400 font-medium">
+              {language === 'en' ? 'Quick demo preview:' : 'Subukan ang live preview:'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('YLO-94821');
+                performLookup('YLO-94821');
+              }}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-amber-300 bg-amber-400/15 border border-amber-400/40 hover:bg-amber-400/30 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Truck className="w-3 h-3 text-amber-400" />
+              <span>{language === 'en' ? 'Demo: Out for Delivery (#YLO-94821)' : 'Demo: Delivering (#YLO-94821)'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('YLO-77102');
+                performLookup('YLO-77102');
+              }}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-cyan-300 bg-cyan-400/15 border border-cyan-400/40 hover:bg-cyan-400/30 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Package className="w-3 h-3 text-cyan-400" />
+              <span>{language === 'en' ? 'Demo: Ice Packing (#YLO-77102)' : 'Demo: Packing (#YLO-77102)'}</span>
+            </button>
+          </div>
 
           {/* Search error notice */}
           {searchError && (
@@ -607,13 +712,112 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             <div className="px-6 sm:px-8 pt-6 pb-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-2">
                 <span>{language === 'en' ? 'Fulfillment Progress' : 'Progreso ng Delivery'}</span>
-                <span className="text-amber-400">{badgeInfo?.percent}%</span>
+                <span className="text-amber-400 font-mono font-black">{badgeInfo?.percent}%</span>
               </div>
               <div className="w-full h-3 rounded-full bg-slate-700/60 overflow-hidden">
                 <div
-                  className="h-full bg-linear-to-r from-amber-400 via-yellow-400 to-emerald-400 transition-all duration-500 rounded-full"
+                  className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-emerald-400 transition-all duration-500 rounded-full"
                   style={{ width: `${badgeInfo?.percent}%` }}
                 />
+              </div>
+            </div>
+
+            {/* LIVE COLD-CHAIN GPS ROUTE RADAR BANNER */}
+            <div className="mx-6 sm:mx-8 my-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-amber-400/40 shadow-inner relative overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 font-heading">
+                    {language === 'en' ? 'Live Cold-Chain GPS Radar' : 'Live Cold-Chain GPS Radar'}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                    • Muñoz Central Hub to {activeTracking.cityArea}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-[11px] font-bold text-cyan-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>-18°C Insulated Thermal Cargo</span>
+                </div>
+              </div>
+
+              {/* Animated Road Track */}
+              <div className="py-4 relative">
+                {/* Connecting Path Line */}
+                <div className="h-2 w-full bg-slate-800 rounded-full relative overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-emerald-400 rounded-full transition-all duration-700"
+                    style={{
+                      width:
+                        activeTracking.status === 'Delivered'
+                          ? '100%'
+                          : activeTracking.status === 'Out for Delivery'
+                          ? '72%'
+                          : activeTracking.status === 'Preparing'
+                          ? '38%'
+                          : '15%',
+                    }}
+                  />
+                  {/* Subtle animated light dot traversing the route */}
+                  <div className="absolute top-0 bottom-0 w-8 bg-white/50 blur-xs rounded-full animate-[pulse_2s_infinite]" />
+                </div>
+
+                {/* Waypoint Markers */}
+                <div className="flex items-center justify-between text-[11px] pt-3 font-bold text-slate-300">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-full bg-amber-400 text-black flex items-center justify-center font-black text-[10px]">
+                      ❄️
+                    </span>
+                    <div>
+                      <div className="text-white font-extrabold text-[11px]">Muñoz Ice Plant</div>
+                      <div className="text-[10px] text-slate-400">Pure RO Line</div>
+                    </div>
+                  </div>
+
+                  {/* Rider Transit Marker */}
+                  <div className="flex flex-col items-center text-center px-2">
+                    <div className="px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/60 text-amber-300 text-[10px] font-black flex items-center gap-1">
+                      <Truck className="w-3 h-3 text-amber-400 animate-bounce" />
+                      <span>{activeTracking.riderName}</span>
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-0.5">
+                      {activeTracking.status === 'Out for Delivery'
+                        ? 'En Route • ~12-18m away'
+                        : activeTracking.status === 'Delivered'
+                        ? 'Safely Delivered'
+                        : 'Packing at Station'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-right">
+                    <div>
+                      <div className="text-white font-extrabold text-[11px] truncate max-w-[140px] sm:max-w-[200px]">
+                        {activeTracking.deliveryAddress}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{activeTracking.cityArea}</div>
+                    </div>
+                    <span className="w-6 h-6 rounded-full bg-emerald-500 text-black flex items-center justify-center font-black text-[10px]">
+                      📍
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Telemetry bottom bar */}
+              <div className="pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                <div className="flex items-center gap-3">
+                  <span>Courier: <strong className="text-slate-200">{activeTracking.riderName}</strong></span>
+                  <span>•</span>
+                  <span>Vehicle: <strong className="text-slate-200">{activeTracking.vehicleType}</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`tel:${activeTracking.riderPhone}`}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-black transition-colors"
+                  >
+                    Direct Call: {activeTracking.riderPhone}
+                  </a>
+                </div>
               </div>
             </div>
 

@@ -47,6 +47,33 @@ export interface ReviewItem {
   productOrdered?: string;
 }
 
+export interface RiderReview {
+  rating: number;
+  comment: string;
+  compliments?: string[];
+  submittedAt: string;
+  reviewerName?: string;
+  riderId?: string;
+  riderName?: string;
+}
+
+export interface Rider {
+  id: string;
+  name: string;
+  phone: string;
+  vehicleType: string;
+  plateNumber: string;
+  assignedZone: string;
+  status: 'Available' | 'On Delivery' | 'Off Duty';
+  notes?: string;
+  createdAt: string;
+  rating?: number;
+  totalRatings?: number;
+  reviewsCount?: number;
+  completedDeliveries?: number;
+  compliments?: Record<string, number>;
+}
+
 export interface OrderRecord {
   id: string;
   orderNumber: string;
@@ -69,11 +96,19 @@ export interface OrderRecord {
   additionalNotes?: string;
   createdAt: string;
   status: 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+  riderId?: string;
+  riderName?: string;
+  riderPhone?: string;
+  vehicleType?: string;
+  riderPlate?: string;
   review?: {
     rating: number;
     comment: string;
+    compliments?: string[];
     submittedAt: string;
     reviewerName?: string;
+    riderId?: string;
+    riderName?: string;
   };
 }
 

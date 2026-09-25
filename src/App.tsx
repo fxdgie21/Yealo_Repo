@@ -15,6 +15,7 @@ import { ContactSection } from './components/ContactSection';
 import { LocationMapSection } from './components/LocationMapSection';
 import { Footer } from './components/Footer';
 import { BackToTop } from './components/BackToTop';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { ToastContainer } from './components/Toast';
 import { Product, OrderRecord, ToastNotification } from './types';
 import { useLanguage } from './context/LanguageContext';
@@ -140,7 +141,7 @@ export default function App() {
       />
 
       {/* Main Sections */}
-      <main className="flex-1">
+      <main className="flex-1 pb-20 md:pb-0">
         {/* 1. Hero Section */}
         <Hero
           onOpenOrderModal={() => handleOpenOrderModal()}
@@ -189,6 +190,14 @@ export default function App() {
 
       {/* Floating Back-To-Top Button */}
       <BackToTop />
+
+      {/* Sleek App-Like Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        onOpenOrderModal={() => handleOpenOrderModal()}
+        onOpenOrdersDrawer={() => setIsRecentOrdersOpen(true)}
+        onOpenAdmin={() => setIsAdminOpen(true)}
+        orderCount={savedOrders.length}
+      />
 
       {/* Modals */}
       {/* Product Detail Modal */}

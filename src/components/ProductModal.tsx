@@ -40,7 +40,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[90dvh] sm:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

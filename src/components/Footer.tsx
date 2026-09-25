@@ -16,7 +16,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onOpenAdmin }
   };
 
   return (
-    <footer id="footer" className="relative bg-[#111827] text-white pt-16 pb-12 overflow-hidden">
+    <footer id="footer" className="relative bg-[#111827] text-white pt-16 pb-28 md:pb-12 overflow-hidden">
       {/* Torn Paper / Brush Transition at Top of Black Footer matching mockup */}
       <div className="absolute top-0 left-0 right-0 w-full overflow-hidden leading-none z-10 pointer-events-none -translate-y-[98%]">
         <svg

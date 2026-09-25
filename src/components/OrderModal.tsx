@@ -198,7 +198,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-amber-200 overflow-hidden my-6 max-h-[92vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-amber-200 overflow-hidden my-4 sm:my-6 max-h-[92dvh] sm:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
@@ -414,7 +414,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       placeholder={language === 'en' ? 'e.g. Maria Santos' : 'hal. Maria Santos'}
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 focus:outline-none focus:ring-2 ${
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-base sm:text-sm text-slate-800 focus:outline-none focus:ring-2 ${
                         errors.customerName
                           ? 'border-red-400 focus:ring-red-400'
                           : 'border-slate-200 focus:ring-[#FDD023]'
@@ -435,7 +435,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       placeholder="+63 9XX XXX XXXX"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 focus:outline-none focus:ring-2 ${
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-base sm:text-sm text-slate-800 focus:outline-none focus:ring-2 ${
                         errors.phoneNumber
                           ? 'border-red-400 focus:ring-red-400'
                           : 'border-slate-200 focus:ring-[#FDD023]'
@@ -456,7 +456,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                     <select
                       value={cityArea}
                       onChange={(e) => setCityArea(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
                     >
                       <option value="Science City of Muñoz">Science City of Muñoz, Nueva Ecija</option>
                       <option value="San Jose City">San Jose City, Nueva Ecija</option>
@@ -475,7 +475,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       placeholder={language === 'en' ? 'Brgy, Street name, Store name, or Landmark' : 'Brgy, street name, tindahan / café, o landmark'}
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 focus:outline-none focus:ring-2 ${
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-base sm:text-sm text-slate-800 focus:outline-none focus:ring-2 ${
                         errors.deliveryAddress
                           ? 'border-red-400 focus:ring-red-400'
                           : 'border-slate-200 focus:ring-[#FDD023]'
@@ -497,7 +497,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       type="date"
                       value={deliveryDate}
                       onChange={(e) => setDeliveryDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
                     />
                   </div>
 
@@ -509,7 +509,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       id="order-delivery-time"
                       value={deliveryTime}
                       onChange={(e) => setDeliveryTime(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
                     >
                       <option value="Morning Dispatch (7:00 AM - 10:00 AM)">
                         {language === 'en' ? 'Morning Dispatch (7:00 AM - 10:00 AM)' : 'Morning Dispatch (7:00 AM - 10:00 AM)'}
@@ -541,7 +541,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                     }
                     value={additionalNotes}
                     onChange={(e) => setAdditionalNotes(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FDD023]"
                   />
                 </div>
               </div>

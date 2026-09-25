@@ -1,0 +1,65 @@
+[
+  {
+    "id": "rider-arnel",
+    "name": "Kuya Arnel Ramos",
+    "phone": "0917-555-8812",
+    "vehicleType": "Insulated Cold-Box Tricycle",
+    "plateNumber": "Muñoz TODA #03 (Plate 4819-NE)",
+    "assignedZone": "Science City of Muñoz (Poblacion & CLSU Area)",
+    "status": "Available",
+    "notes": "Lead dispatcher. Tricycle equipped with heavy-duty 50kg thermal ice cooler box.",
+    "createdAt": "2024-01-15T08:00:00.000Z",
+    "rating": 4.95,
+    "totalRatings": 109,
+    "reviewsCount": 22,
+    "completedDeliveries": 142,
+    "compliments": {
+      "Lightning Fast": 18,
+      "Zero Melt Ice": 21,
+      "Super Polite": 20,
+      "Safe Driving": 14
+    }
+  },
+  {
+    "id": "rider-bong",
+    "name": "Kuya Bong Dalisay",
+    "phone": "0928-555-4321",
+    "vehicleType": "Tricycle with Insulated Ice Cargo",
+    "plateNumber": "Muñoz TODA #18 (Plate 2931-NA)",
+    "assignedZone": "Bantug, Maligaya, & Villa Neva",
+    "status": "Available",
+    "notes": "Specializes in restaurant sacks and bulk 10kg party orders.",
+    "createdAt": "2024-03-10T08:00:00.000Z",
+    "rating": 4.88,
+    "totalRatings": 78,
+    "reviewsCount": 16,
+    "completedDeliveries": 98,
+    "compliments": {
+      "Lightning Fast": 11,
+      "Zero Melt Ice": 15,
+      "Super Polite": 14,
+      "Great Coordination": 12
+    }
+  },
+  {
+    "id": "rider-jomar",
+    "name": "Jomar 'Jong' Santos",
+    "phone": "0995-555-9087",
+    "vehicleType": "Express Delivery Motorcycle (Twin Coolers)",
+    "plateNumber": "Plate MC-7734",
+    "assignedZone": "San Jose City & Fast Rush Deliveries",
+    "status": "Available",
+    "notes": "Fast rush deliveries for events, cafes, and milk tea shops.",
+    "createdAt": "2024-06-01T08:00:00.000Z",
+    "rating": 4.92,
+    "totalRatings": 64,
+    "reviewsCount": 13,
+    "completedDeliveries": 85,
+    "compliments": {
+      "Lightning Fast": 13,
+      "Zero Melt Ice": 12,
+      "Super Polite": 10,
+      "Safe Driving": 9
+    }
+  }
+]

@@ -197,11 +197,11 @@ export const RecentOrdersModal: React.FC<RecentOrdersModalProps> = ({
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-amber-200 overflow-hidden max-h-[85vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-200 overflow-hidden max-h-[90dvh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-amber-200 bg-[#FFFDF0]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-amber-200 bg-[#FFFDF0]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#FDD023] text-[#111827] flex items-center justify-center font-black">
               <ShoppingBag className="w-4 h-4" />
