@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, Eye, Plus, Minus } from 'lucide-react';
 import { Product } from '../types';
-import productsData from '../data/products.json';
+import { useProducts } from '../context/ProductsContext';
 import { useLanguage } from '../context/LanguageContext';
 
 interface ProductCatalogProps {
@@ -58,13 +58,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onSelectProduct,
   onQuickOrder,
 }) => {
-  const products = productsData as Product[];
+  const { products } = useProducts();
   const { t, language } = useLanguage();
   const [selectedGlobalSize, setSelectedGlobalSize] = useState<BagSize>('5kg');
-  const [selectedBagSizes, setSelectedBagSizes] = useState<Record<string, BagSize>>({
-    'cube-ice': '5kg',
-    'tube-ice': '5kg',
-  });
+  const [selectedBagSizes, setSelectedBagSizes] = useState<Record<string, BagSize>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
 
   const handleBagSizeChange = (productId: string, size: BagSize) => {
@@ -73,10 +70,11 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
   const handleGlobalBagSizeClick = (size: BagSize) => {
     setSelectedGlobalSize(size);
-    setSelectedBagSizes({
-      'cube-ice': size,
-      'tube-ice': size,
+    const updated: Record<string, BagSize> = {};
+    products.forEach((p) => {
+      updated[p.id] = size;
     });
+    setSelectedBagSizes(updated);
   };
 
   const getPrice = (product: Product, size: BagSize) => {
@@ -149,8 +147,8 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </div>
         </div>
 
-        {/* Strict 2-Product Grid: Tube Ice and Cube Ice Only */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 max-w-5xl mx-auto">
+        {/* Product Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-6xl mx-auto">
           {products.map((product) => {
             const currentSize = selectedBagSizes[product.id] || selectedGlobalSize;
             const currentUnitPrice = getPrice(product, currentSize);
@@ -158,24 +156,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             const subtotal = currentUnitPrice * qty;
 
             const isTube = product.id === 'tube-ice';
-            const productName =
-              language === 'en'
-                ? product.name
-                : isTube
-                ? 'Tube Ice'
-                : 'Cube Ice';
-            const productCategory =
-              language === 'en'
-                ? product.category
-                : isTube
-                ? 'Cylindrical Tube Ice'
-                : 'Crystal Gourmet Cubes';
-            const productDesc =
-              language === 'en'
-                ? product.description
-                : isTube
-                ? 'Classic cylindrical ice na may hollow center para sa mabilisang pagpapalamig ng milk tea, iced coffee, juices, at drinks.'
-                : 'Solid, crystal-clear gourmet cubes na mabagal matunaw para hindi matabang ang inyong iced coffee, cocktails, o shakes.';
+            const isCube = product.id === 'cube-ice';
+            const productName = product.name;
+            const productCategory = product.category;
+            const productDesc = product.description;
 
             return (
               <div

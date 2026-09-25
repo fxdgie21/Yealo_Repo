@@ -8,7 +8,7 @@ export interface ProductBagOption {
 export interface Product {
   id: string;
   name: string;
-  category: 'Cubes' | 'Tubes' | 'Cube Ice' | 'Tube Ice';
+  category: 'Cubes' | 'Tubes' | 'Cube Ice' | 'Tube Ice' | string;
   description: string;
   longDescription: string;
   price: number; // default base price (e.g. 5kg)

@@ -385,7 +385,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-600 flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Hotline: 0917-555-8812</span>
+                    <a href="tel:09625415941" className="hover:text-amber-800 transition-colors">
+                      Hotline: 09625415941
+                    </a>
                   </p>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, Truck } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, Truck, MessageCircle } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface ContactSectionProps {
@@ -105,14 +105,14 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
                   </div>
                   <div>
                     <h4 className="font-black text-xs uppercase text-slate-500 tracking-wider">
-                      {t.contact.phoneUs}
+                      CALL US
                     </h4>
                     <p className="text-slate-800 font-bold mt-0.5">
-                      <a href="tel:+639171234567" className="hover:text-amber-700 transition-colors">
-                        +63 917 123 4567
+                      <a href="tel:09625415941" className="hover:text-amber-700 transition-colors text-base font-black">
+                        09625415941
                       </a>
                     </p>
-                    <p className="text-xs text-slate-500">Landline: (044) 940-YEALO</p>
+                    <p className="text-xs text-slate-500">Fast Hotline & Rush Delivery</p>
                   </div>
                 </div>
 
@@ -126,11 +126,34 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
                       EMAIL
                     </h4>
                     <p className="text-slate-800 font-bold mt-0.5">
-                      <a href="mailto:orders@yealoice.com" className="hover:text-amber-700 transition-colors">
-                        orders@yealoice.com
+                      <a href="mailto:inquiry4yealo@gmail.com" className="hover:text-amber-700 transition-colors">
+                        inquiry4yealo@gmail.com
                       </a>
                     </p>
-                    <p className="text-xs text-slate-500">inquiry@yealoice.com</p>
+                    <p className="text-xs text-slate-500">Commercial & wholesale inquiries</p>
+                  </div>
+                </div>
+
+                {/* Messenger */}
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-2xl bg-[#FDD023] text-[#111827] flex items-center justify-center shrink-0 shadow-xs font-black">
+                    <MessageCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-xs uppercase text-slate-500 tracking-wider">
+                      MESSENGER
+                    </h4>
+                    <p className="text-slate-800 font-bold mt-0.5">
+                      <a
+                        href="https://m.me/Yealo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-amber-700 transition-colors underline font-black"
+                      >
+                        Yealo
+                      </a>
+                    </p>
+                    <p className="text-xs text-slate-500">Direct Facebook Messenger chat</p>
                   </div>
                 </div>
 

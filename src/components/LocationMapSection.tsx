@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 export const LocationMapSection: React.FC = () => {
   const { t, language } = useLanguage();
   const directionsUrl =
-    'https://www.google.com/maps/search/?api=1&query=Science+City+of+Muñoz+Nueva+Ecija';
+    'https://www.google.com/maps/search/?api=1&query=San+Jose+City+Nueva+Ecija+3121+Philippines';
 
   return (
     <section id="location" className="py-20 bg-[#FFFDF0] relative overflow-hidden">
@@ -39,7 +39,7 @@ export const LocationMapSection: React.FC = () => {
                   <div>
                     <h4 className="font-black text-xs uppercase text-slate-500">{t.location.distHub}</h4>
                     <p className="font-black text-sm text-[#111827] mt-0.5">
-                      Muñoz & San Jose City, Nueva Ecija
+                      San Jose, Philippines, 3121
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {t.location.distHubDesc}
@@ -80,7 +80,7 @@ export const LocationMapSection: React.FC = () => {
 
               <a
                 id="location-call-us-btn"
-                href="tel:+639171234567"
+                href="tel:09625415941"
                 className="w-full sm:w-1/2 py-3.5 px-4 rounded-full font-black text-xs sm:text-sm uppercase tracking-wider text-white bg-[#111827] hover:bg-black flex items-center justify-center gap-2 transition-all"
               >
                 <Phone className="w-4 h-4" />
@@ -89,11 +89,11 @@ export const LocationMapSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: Embedded Map Centered on Muñoz & San Jose City */}
+          {/* Right: Embedded Map Centered on San Jose, Philippines 3121 */}
           <div className="lg:col-span-7 min-h-[380px] rounded-3xl overflow-hidden border border-amber-200 shadow-sm relative bg-slate-100">
             <iframe
-              title="Yealo Ice Muñoz and San Jose City Location Map"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d123048.8680193132!2d120.84074211157984!3d15.748366472393273!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3390c52bbdf8f15d%3A0xe54e19572455c1b6!2sScience%20City%20of%20Mu%C3%B1oz%2C%20Nueva%20Ecija!5e0!3m2!1sen!2sph!4v1680000000000!5m2!1sen!2sph"
+              title="Yealo Ice San Jose Philippines 3121 Location Map"
+              src="https://maps.google.com/maps?q=San+Jose+City,+Nueva+Ecija+3121,+Philippines&t=&z=14&ie=UTF8&iwloc=&output=embed"
               className="w-full h-full min-h-[400px] border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"

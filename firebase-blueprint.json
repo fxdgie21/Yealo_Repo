@@ -64,12 +64,52 @@
         }
       },
       "required": ["id", "customerName", "phoneNumber", "deliveryAddress", "cityArea", "productName", "bagSize", "quantity", "total", "status", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Ice product item sold in stores",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique product ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the ice product"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category"
+        },
+        "description": {
+          "type": "string",
+          "description": "Short marketing description"
+        },
+        "price": {
+          "type": "number",
+          "description": "Base price (per 5kg bag)"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit label, e.g. per 5kg bag"
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Availability status"
+        }
+      },
+      "required": ["id", "name", "price"]
     }
   },
   "firestore": {
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Live incoming customer ice orders for dispatch management"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Configurable ice products and prices managed by Store Admin"
     }
   }
 }

@@ -5,5 +5,9 @@ service cloud.firestore {
       // Allow customers to submit orders and dispatch admin to read, update, and delete orders
       allow read, create, update, delete: if true;
     }
+    match /products/{productId} {
+      // Allow public customers to read active products and dispatch admin to add, update, delete
+      allow read, create, update, delete: if true;
+    }
   }
 }

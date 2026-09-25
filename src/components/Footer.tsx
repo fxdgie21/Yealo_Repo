@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Mail, Phone, ChevronUp } from 'lucide-react';
+import { MapPin, Mail, Phone, ChevronUp, MessageCircle } from 'lucide-react';
 import { YealoLogo } from './YealoLogo';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -55,7 +55,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onOpenAdmin }
             </p>
           </div>
 
-          {/* Pillar 2: CONTACT US */}
+          {/* Pillar 2: CONTACT US / EMAIL & MESSENGER */}
           <div className="space-y-3">
             <div className="flex items-center justify-center md:justify-start gap-2.5">
               <div className="w-8 h-8 rounded-full bg-[#FDD023] text-[#111827] flex items-center justify-center font-black">
@@ -65,14 +65,26 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onOpenAdmin }
                 {t.footer.contactUsTitle}
               </h4>
             </div>
-            <p className="text-sm text-slate-300 font-medium leading-relaxed">
-              <a href="mailto:orders@yealoice.com" className="hover:text-[#FDD023] transition-colors block">
-                orders@yealoice.com
-              </a>
-              <a href="mailto:support@yealoice.com" className="hover:text-[#FDD023] transition-colors block text-xs text-slate-400 mt-1">
-                support@yealoice.com
-              </a>
-            </p>
+            <div className="text-sm text-slate-300 font-medium leading-relaxed space-y-1.5">
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider text-slate-400 font-bold">EMAIL</span>
+                <a href="mailto:inquiry4yealo@gmail.com" className="hover:text-[#FDD023] transition-colors font-semibold text-white">
+                  inquiry4yealo@gmail.com
+                </a>
+              </div>
+              <div>
+                <span className="block text-[11px] uppercase tracking-wider text-slate-400 font-bold">MESSENGER</span>
+                <a
+                  href="https://m.me/Yealo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-amber-300 transition-colors inline-flex items-center gap-1.5 font-bold text-[#FDD023]"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Yealo</span>
+                </a>
+              </div>
+            </div>
             <p className="text-xs text-slate-400">
               {language === 'en'
                 ? 'Quick response for bulk and recurring orders'
@@ -91,11 +103,11 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onOpenAdmin }
               </h4>
             </div>
             <p className="text-base text-slate-200 font-black leading-relaxed">
-              <a href="tel:+639171234567" className="hover:text-[#FDD023] transition-colors block">
-                +63 917 123 4567
+              <a href="tel:09625415941" className="hover:text-amber-300 text-lg text-[#FDD023] transition-colors block">
+                09625415941
               </a>
               <span className="text-xs font-semibold text-slate-400 block mt-0.5">
-                (044) 940-YEALO
+                Direct Dispatch Hotline
               </span>
             </p>
             <p className="text-xs text-slate-400">

@@ -27,6 +27,11 @@ import {
   Volume2,
   VolumeX,
   Star,
+  Edit2,
+  Tag,
+  Save,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import {
   collection,
@@ -39,7 +44,8 @@ import {
   query,
 } from 'firebase/firestore';
 import { db, deleteOrderPermanently } from '../lib/firebase';
-import { OrderRecord } from '../types';
+import { OrderRecord, Product, ProductBagOption } from '../types';
+import { useProducts } from '../context/ProductsContext';
 
 interface AdminDispatchModalProps {
   isOpen: boolean;
@@ -71,12 +77,41 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Tabs: 'orders' | 'products'
+  const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
+
+  // Products context for managing prices and inventory
+  const { products, updateProduct, addProduct, deleteProduct, resetToDefaults } = useProducts();
+
+  // Product edit modal / inline edit state
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editPrice1kg, setEditPrice1kg] = useState<number>(8);
+  const [editPrice5kg, setEditPrice5kg] = useState<number>(40);
+  const [editPrice10kg, setEditPrice10kg] = useState<number>(80);
+  const [editInStock, setEditInStock] = useState<boolean>(true);
+
+  // Add new product modal state
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProdName, setNewProdName] = useState('');
+  const [newProdCategory, setNewProdCategory] = useState<'Cubes' | 'Tubes' | string>('Cubes');
+  const [newProdDesc, setNewProdDesc] = useState('');
+  const [newProdPrice1kg, setNewProdPrice1kg] = useState<number>(8);
+  const [newProdPrice5kg, setNewProdPrice5kg] = useState<number>(40);
+  const [newProdPrice10kg, setNewProdPrice10kg] = useState<number>(80);
+  const [newProdImage, setNewProdImage] = useState<string>('/images/crystal-ice-cubes.jpg');
+  const [newProdBadge, setNewProdBadge] = useState<string>('New Arrival');
+  const [newProdPackaging, setNewProdPackaging] = useState<string>('Hygienic sealed Yealo polybag');
+
+  // Product delete confirmation modal state
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeletingProduct, setIsDeletingProduct] = useState(false);
+
   // Manual fast order creation states
   const [mName, setMName] = useState('');
   const [mPhone, setMPhone] = useState('');
   const [mAddress, setMAddress] = useState('');
   const [mCity, setMCity] = useState('Science City of Muñoz');
-  const [mProduct, setMProduct] = useState<'Tube Ice' | 'Cube Ice'>('Tube Ice');
+  const [mProduct, setMProduct] = useState<string>('Tube Ice');
   const [mSize, setMSize] = useState<'1kg' | '5kg' | '10kg'>('5kg');
   const [mQty, setMQty] = useState(2);
   const [mNotes, setMNotes] = useState('');
@@ -413,8 +448,9 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       return;
     }
 
-    const priceMap: Record<string, number> = { '1kg': 20, '5kg': 40, '10kg': 75 };
-    const unitPrice = priceMap[mSize] || 40;
+    const matchedProd = products.find((p) => p.name === mProduct || p.id === mProduct) || products[0];
+    const bagOpt = matchedProd?.bagOptions?.find((b) => b.size === mSize);
+    const unitPrice = bagOpt ? bagOpt.price : (mSize === '1kg' ? 8 : mSize === '10kg' ? 80 : 40);
     const subtotal = unitPrice * mQty;
     const deliveryFee = subtotal >= 300 ? 0 : 30;
     const total = subtotal + deliveryFee;
@@ -425,8 +461,8 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       customerName: mName,
       phoneNumber: mPhone,
       email: 'walkin@yealoice.com',
-      productId: mProduct === 'Tube Ice' ? 'tube-ice' : 'cube-ice',
-      productName: `${mProduct} (${mSize})`,
+      productId: matchedProd ? matchedProd.id : 'tube-ice',
+      productName: `${matchedProd ? matchedProd.name : mProduct} (${mSize})`,
       bagSize: mSize,
       quantity: mQty,
       unitPrice,
@@ -460,6 +496,97 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
       console.error(err);
       setOrders((prev) => [newOrd, ...prev]);
       setShowManualOrderForm(false);
+    }
+  };
+
+  // Product Management Handlers
+  const handleStartEditProduct = (prod: Product) => {
+    setEditingProductId(prod.id);
+    const opt1 = prod.bagOptions?.find((b) => b.size === '1kg');
+    const opt5 = prod.bagOptions?.find((b) => b.size === '5kg');
+    const opt10 = prod.bagOptions?.find((b) => b.size === '10kg');
+    setEditPrice1kg(opt1 ? opt1.price : 8);
+    setEditPrice5kg(opt5 ? opt5.price : prod.price || 40);
+    setEditPrice10kg(opt10 ? opt10.price : 80);
+    setEditInStock(prod.inStock !== false);
+  };
+
+  const handleSaveProductPrices = async (prod: Product) => {
+    const updatedOptions: ProductBagOption[] = [
+      { size: '1kg', weightKg: 1, price: editPrice1kg, label: '1kg Personal Bag' },
+      { size: '5kg', weightKg: 5, price: editPrice5kg, label: '5kg Standard Bag' },
+      { size: '10kg', weightKg: 10, price: editPrice10kg, label: '10kg Commercial Sack' },
+    ];
+    const updatedProd: Product = {
+      ...prod,
+      price: editPrice5kg,
+      inStock: editInStock,
+      bagOptions: updatedOptions,
+    };
+
+    const res = await updateProduct(updatedProd);
+    if (res.success) {
+      setActionMessage(`Updated pricing for ${prod.name}! (1kg: ₱${editPrice1kg}, 5kg: ₱${editPrice5kg}, 10kg: ₱${editPrice10kg})`);
+      setEditingProductId(null);
+      setTimeout(() => setActionMessage(null), 3500);
+    }
+  };
+
+  const handleCreateNewProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProdName.trim()) {
+      alert('Please enter a product name');
+      return;
+    }
+
+    const slug = newProdName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const newId = `${slug}-${Date.now().toString().slice(-4)}`;
+
+    const newProduct: Product = {
+      id: newId,
+      name: newProdName.trim(),
+      category: newProdCategory,
+      description: newProdDesc.trim() || `${newProdName.trim()} produced with pure 5-stage reverse osmosis water.`,
+      longDescription: `Highest grade pure ice manufactured with food-grade standards for refreshments, restaurants, caterings, and parties.`,
+      price: newProdPrice5kg,
+      unit: 'per 5kg bag',
+      image: newProdImage || '/images/crystal-ice-cubes.jpg',
+      badge: newProdBadge.trim() || undefined,
+      temperature: '-12°C',
+      meltRate: 'Slow',
+      bestFor: 'Beverages, coolers, catering, and businesses',
+      packaging: newProdPackaging.trim() || 'Hygienic sealed Yealo polybag',
+      inStock: true,
+      bagOptions: [
+        { size: '1kg', weightKg: 1, price: newProdPrice1kg, label: '1kg Personal Bag' },
+        { size: '5kg', weightKg: 5, price: newProdPrice5kg, label: '5kg Standard Bag' },
+        { size: '10kg', weightKg: 10, price: newProdPrice10kg, label: '10kg Commercial Sack' },
+      ],
+    };
+
+    const res = await addProduct(newProduct);
+    if (res.success) {
+      setActionMessage(`Product "${newProduct.name}" added successfully!`);
+      setShowAddProductModal(false);
+      setNewProdName('');
+      setNewProdDesc('');
+      setNewProdPrice1kg(8);
+      setNewProdPrice5kg(40);
+      setNewProdPrice10kg(80);
+      setTimeout(() => setActionMessage(null), 3500);
+    }
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeletingProduct(true);
+    try {
+      await deleteProduct(productToDelete.id);
+      setActionMessage(`Product "${productToDelete.name}" deleted from store.`);
+      setTimeout(() => setActionMessage(null), 3500);
+    } finally {
+      setIsDeletingProduct(false);
+      setProductToDelete(null);
     }
   };
 
@@ -609,48 +736,52 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
           {/* Secondary Mobile Quick-Action Row for Touch Devices */}
           {isAuthenticated && (
-            <div className="flex md:hidden items-center justify-between gap-1.5 pt-2 mt-2 border-t border-amber-300/60 text-xs overflow-x-auto">
+            <div className="flex md:hidden items-center justify-between gap-1.5 pt-2 mt-2 border-t border-amber-300/70 text-xs overflow-x-auto">
               <div className="flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={() => setSoundEnabled((prev) => !prev)}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 border transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 border transition-colors cursor-pointer shadow-2xs ${
                     soundEnabled ? 'bg-white text-emerald-800 border-amber-300' : 'bg-black/10 text-slate-700 border-black/10'
                   }`}
                 >
-                  {soundEnabled ? <Volume2 className="w-3 h-3 text-emerald-600" /> : <VolumeX className="w-3 h-3 text-slate-500" />}
+                  {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <VolumeX className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
                   <span>{soundEnabled ? 'Sound ON' : 'Muted'}</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={requestNotifPermission}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 border transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-black flex items-center gap-1.5 border transition-colors cursor-pointer shadow-2xs ${
                     notifPermission === 'granted' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-slate-800 border-amber-300'
                   }`}
                 >
-                  <Bell className="w-3 h-3" />
-                  <span>{notifPermission === 'granted' ? 'Alerts ON' : 'Enable Alerts'}</span>
+                  <Bell className="w-3.5 h-3.5 shrink-0" />
+                  <span>{notifPermission === 'granted' ? 'Alerts ON' : 'Alerts'}</span>
                 </button>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={handleFixAndSyncDatabase}
                   disabled={isSyncing}
-                  className="px-2 py-1 rounded-lg text-[11px] font-black bg-white text-slate-800 border border-amber-300 flex items-center gap-1 cursor-pointer active:scale-95"
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-black bg-white text-slate-800 border border-amber-300 flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
                 >
-                  <RefreshCw className={`w-3 h-3 text-amber-700 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-700 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Syncing...' : 'Sync DB'}</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     playAlertChime();
                     setActionMessage('Sound chime tested successfully!');
                     setTimeout(() => setActionMessage(null), 2500);
                   }}
-                  className="px-2 py-1 rounded-lg text-[11px] font-black bg-black/10 hover:bg-black/15 text-[#111827] flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-black bg-white/70 hover:bg-white text-[#111827] border border-amber-300/80 flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
-                  <span>Test Chime</span>
+                  <span>Chime</span>
                 </button>
               </div>
             </div>
@@ -752,6 +883,75 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
         ) : (
           /* MAIN DISPATCH DASHBOARD BODY */
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/60">
+            {/* Top Navigation Tabs: Orders Dispatch vs Product & Pricing Management */}
+            <div className="flex items-center justify-between border-b border-amber-300 pb-3 gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('orders')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'orders'
+                      ? 'bg-[#111827] text-[#FDD023] shadow-md ring-2 ring-[#111827]/20'
+                      : 'bg-white text-slate-700 hover:bg-amber-100/70 border border-slate-200'
+                  }`}
+                >
+                  <Truck className="w-4 h-4" />
+                  <span>Orders & Dispatch</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-1">
+                    {orders.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('products')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                    activeTab === 'products'
+                      ? 'bg-[#111827] text-[#FDD023] shadow-md ring-2 ring-[#111827]/20'
+                      : 'bg-white text-slate-700 hover:bg-amber-100/70 border border-slate-200'
+                  }`}
+                >
+                  <Tag className="w-4 h-4" />
+                  <span>Products & Pricing</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-400 text-black ml-1">
+                    {products.length}
+                  </span>
+                </button>
+              </div>
+
+              {activeTab === 'products' && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(true)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-[#FDD023] hover:bg-[#FED74C] text-[#111827] border border-amber-400 shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Add New Product</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm('Reset products to standard Yealo Ice defaults (1kg: ₱8, 5kg: ₱40, 10kg: ₱80)?')) {
+                        await resetToDefaults();
+                        setActionMessage('Products reset to standard defaults!');
+                        setTimeout(() => setActionMessage(null), 3000);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 hover:text-black border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+                    title="Reset product catalog to standard 1kg P8, 5kg P40, 10kg P80"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="hidden sm:inline">Reset Defaults</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* TAB 1: ORDERS & DISPATCH */}
+            {activeTab === 'orders' && (
+              <>
             {/* 1. DAILY SALES & BAG METRICS SUMMARY BAR */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {/* Daily Sales Card */}
@@ -933,11 +1133,14 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                     <div className="flex gap-2">
                       <select
                         value={mProduct}
-                        onChange={(e) => setMProduct(e.target.value as any)}
+                        onChange={(e) => setMProduct(e.target.value)}
                         className="flex-1 px-2 py-2 rounded-xl bg-white border border-amber-200 text-slate-900"
                       >
-                        <option value="Tube Ice">Tube Ice</option>
-                        <option value="Cube Ice">Cube Ice</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.name}>
+                            {p.name}
+                          </option>
+                        ))}
                       </select>
                       <select
                         value={mSize}
@@ -1217,6 +1420,450 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                 })}
               </div>
             )}
+            </>
+            )}
+
+            {/* TAB 2: PRODUCTS & PRICING MANAGEMENT */}
+            {activeTab === 'products' && (
+              <div className="space-y-6">
+                {/* Intro summary banner */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black shrink-0 shadow-xs">
+                      <Tag className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-heading font-black text-lg text-[#111827]">
+                        Product Catalog & Price Management
+                      </h4>
+                      <p className="text-xs text-slate-600 font-medium">
+                        Change prices per kg (1kg, 5kg, 10kg), update inventory status, add new ice products, or remove items.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                    <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 text-xs font-black">
+                      Active Items: {products.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Product Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {products.map((product) => {
+                    const isEditing = editingProductId === product.id;
+                    const opt1 = product.bagOptions?.find((b) => b.size === '1kg');
+                    const opt5 = product.bagOptions?.find((b) => b.size === '5kg');
+                    const opt10 = product.bagOptions?.find((b) => b.size === '10kg');
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`bg-white rounded-3xl border-2 transition-all p-5 shadow-sm flex flex-col justify-between ${
+                          isEditing
+                            ? 'border-[#111827] ring-2 ring-amber-300'
+                            : 'border-amber-200/90 hover:border-amber-300'
+                        }`}
+                      >
+                        {/* Top info row */}
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200">
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-heading font-black text-base text-[#111827]">
+                                    {product.name}
+                                  </h4>
+                                  {product.badge && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900">
+                                      {product.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-2 mt-0.5">
+                                  <span>Category: {product.category || 'Standard Ice'}</span>
+                                  <span>•</span>
+                                  <span className={product.inStock !== false ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'}>
+                                    {product.inStock !== false ? '● In Stock' : '○ Out of Stock'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {!isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditProduct(product)}
+                                    className="p-2 rounded-xl bg-amber-50 hover:bg-[#FED74C] text-[#111827] border border-amber-200 transition-colors cursor-pointer"
+                                    title="Edit product prices & stock"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setProductToDelete(product)}
+                                    className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                                    title="Delete product from store"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingProductId(null)}
+                                  className="text-xs font-bold text-slate-500 hover:text-black px-2 py-1 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-slate-600 font-medium mb-4 line-clamp-2">
+                            {product.description}
+                          </p>
+                        </div>
+
+                        {/* Price Management Section */}
+                        <div className="pt-3 border-t border-slate-100">
+                          <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                            {isEditing ? 'Edit Pricing Per Bag Size (PHP ₱):' : 'Current Price Per Bag Size:'}
+                          </div>
+
+                          {!isEditing ? (
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                                <div className="text-[10px] uppercase font-bold text-slate-500">1kg Personal</div>
+                                <div className="font-heading font-black text-base text-[#111827]">
+                                  ₱{opt1 ? opt1.price : 8}
+                                </div>
+                              </div>
+                              <div className="p-2.5 rounded-2xl bg-amber-100/60 border border-amber-300">
+                                <div className="text-[10px] uppercase font-bold text-slate-600">5kg Standard</div>
+                                <div className="font-heading font-black text-base text-[#111827]">
+                                  ₱{opt5 ? opt5.price : product.price || 40}
+                                </div>
+                              </div>
+                              <div className="p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                                <div className="text-[10px] uppercase font-bold text-slate-500">10kg Commercial</div>
+                                <div className="font-heading font-black text-base text-[#111827]">
+                                  ₱{opt10 ? opt10.price : 80}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3 bg-amber-50/50 p-3 rounded-2xl border border-amber-200">
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
+                                    1kg Price (₱)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step="1"
+                                    value={editPrice1kg}
+                                    onChange={(e) => setEditPrice1kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
+                                    5kg Price (₱)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step="1"
+                                    value={editPrice5kg}
+                                    onChange={(e) => setEditPrice5kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-black uppercase text-slate-600 mb-1">
+                                    10kg Price (₱)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    step="1"
+                                    value={editPrice10kg}
+                                    onChange={(e) => setEditPrice10kg(Math.max(1, parseInt(e.target.value) || 0))}
+                                    className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-sm text-center text-[#111827] focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-1">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={editInStock}
+                                    onChange={(e) => setEditInStock(e.target.checked)}
+                                    className="rounded border-slate-300 text-[#111827] focus:ring-amber-400 w-4 h-4"
+                                  />
+                                  <span>In Stock (Available for ordering)</span>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveProductPrices(product)}
+                                  className="px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                  <span>Save Prices</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ADD PRODUCT MODAL */}
+        {showAddProductModal && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs overflow-y-auto"
+            onClick={() => setShowAddProductModal(false)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border-2 border-amber-400 text-slate-900 my-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-amber-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#FED74C] text-[#111827] flex items-center justify-center font-black">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-black text-lg text-[#111827]">
+                      Add New Ice Product
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Fill out details to publish immediately to customer catalog
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAddProductModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateNewProduct} className="space-y-4 pt-4 text-xs">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Product Name *</label>
+                  <input
+                    required
+                    type="text"
+                    placeholder="e.g. Gourmet Sphere Ice / Crushed Snow Ice"
+                    value={newProdName}
+                    onChange={(e) => setNewProdName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-[#111827]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Category</label>
+                    <select
+                      value={newProdCategory}
+                      onChange={(e) => setNewProdCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    >
+                      <option value="Cubes">Cubes</option>
+                      <option value="Tubes">Tubes</option>
+                      <option value="Crushed">Crushed</option>
+                      <option value="Block">Block</option>
+                      <option value="Specialty">Specialty</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Product Badge (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Best Seller, Bar Grade"
+                      value={newProdBadge}
+                      onChange={(e) => setNewProdBadge(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Short Description</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Crystal clear slow-melting ice for cocktails and milk tea."
+                    value={newProdDesc}
+                    onChange={(e) => setNewProdDesc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                  />
+                </div>
+
+                {/* Packaging sizes & prices */}
+                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                  <div className="text-[11px] font-black uppercase text-amber-900 mb-2">
+                    Pricing By Bag Size (PHP ₱)
+                  </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-600 mb-1">
+                        1kg Bag Price
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newProdPrice1kg}
+                        onChange={(e) => setNewProdPrice1kg(Math.max(1, parseInt(e.target.value) || 0))}
+                        className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-center text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-600 mb-1">
+                        5kg Bag Price
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newProdPrice5kg}
+                        onChange={(e) => setNewProdPrice5kg(Math.max(1, parseInt(e.target.value) || 0))}
+                        className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-center text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-600 mb-1">
+                        10kg Bag Price
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={newProdPrice10kg}
+                        onChange={(e) => setNewProdPrice10kg(Math.max(1, parseInt(e.target.value) || 0))}
+                        className="w-full px-2 py-1.5 rounded-xl bg-white border border-amber-300 font-bold text-center text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Product Photo URL</label>
+                  <input
+                    type="text"
+                    placeholder="/images/crystal-ice-cubes.jpg or https://..."
+                    value={newProdImage}
+                    onChange={(e) => setNewProdImage(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-[#111827]"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewProdImage('/images/crystal-ice-cubes.jpg')}
+                      className="text-[11px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg font-bold"
+                    >
+                      Use Cubes Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewProdImage('/images/purified-tube-ice.jpg')}
+                      className="text-[11px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-lg font-bold"
+                    >
+                      Use Tubes Image
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-xl bg-[#111827] hover:bg-black text-[#FDD023] font-black uppercase tracking-wider shadow-sm cursor-pointer"
+                  >
+                    Save & Add Product
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DELETE PRODUCT CONFIRMATION MODAL */}
+        {productToDelete && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+            onClick={() => setProductToDelete(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-rose-400 text-slate-900 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+
+              <div className="text-center">
+                <h4 className="font-heading font-black text-lg text-slate-900">
+                  Delete Product?
+                </h4>
+                <p className="text-xs text-slate-600 mt-1">
+                  Are you sure you want to delete <strong className="text-black font-black">"{productToDelete.name}"</strong>? It will no longer appear on the customer store or order modal.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeletingProduct}
+                  onClick={() => setProductToDelete(null)}
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingProduct}
+                  onClick={handleConfirmDeleteProduct}
+                  className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isDeletingProduct ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Delete</span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -12,7 +12,7 @@ import {
 import confetti from 'canvas-confetti';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import productsData from '../data/products.json';
+import { useProducts } from '../context/ProductsContext';
 import { Product, OrderRecord } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -36,7 +36,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   onOrderSuccess,
 }) => {
   const { t, language } = useLanguage();
-  const products = productsData as Product[];
+  const { products } = useProducts();
 
   const [selectedProductId, setSelectedProductId] = useState<string>(
     initialProductId || products[0]?.id || 'cube-ice'
@@ -128,7 +128,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       orderNumber,
       customerName,
       phoneNumber,
-      email: email || 'orders@yealoice.com',
+      email: email || 'inquiry4yealo@gmail.com',
       productId: currentProduct.id,
       productName: `${currentProduct.name} (${selectedBagSize})`,
       bagSize: selectedBagSize,
@@ -310,12 +310,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   <span>{language === 'en' ? 'Select Product & Packaging Size' : 'Piliin ang Product at Bag Size'}</span>
                 </div>
 
-                {/* 2 Products Only: Cube Ice & Tube Ice */}
+                {/* Products List */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-2">
                     {language === 'en' ? 'Ice Type *' : 'Ice Type *'}
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
                     {products.map((p) => (
                       <button
                         key={p.id}
@@ -330,9 +330,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                         <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-slate-100">
                           <img src={p.image} alt={p.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </div>
-                        <div>
-                          <div className="font-heading font-black text-sm">{p.name}</div>
-                          <div className="text-[11px] opacity-80">{p.badge || 'Pure Quality'}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-heading font-black text-sm truncate">{p.name}</div>
+                          <div className="text-[11px] opacity-80 truncate">{p.badge || (p.inStock !== false ? 'In Stock' : 'Pre-order')}</div>
                         </div>
                       </button>
                     ))}
