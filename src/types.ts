@@ -69,9 +69,6 @@ export interface OrderRecord {
   additionalNotes?: string;
   createdAt: string;
   status: 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  riderName?: string;
-  riderPhone?: string;
-  riderNotes?: string;
   review?: {
     rating: number;
     comment: string;
@@ -88,17 +85,6 @@ export interface ContactMessage {
   subject: string;
   message: string;
   createdAt: string;
-}
-
-export interface DeliveryRider {
-  id: string;
-  name: string;
-  phone: string;
-  vehicle?: string;
-  plateNumber?: string;
-  status?: 'Available' | 'On Delivery' | 'Off Duty';
-  notes?: string;
-  createdAt?: string;
 }
 
 export interface ToastNotification {

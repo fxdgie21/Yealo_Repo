@@ -9,9 +9,5 @@ service cloud.firestore {
       // Allow public customers to read active products and dispatch admin to add, update, delete
       allow read, create, update, delete: if true;
     }
-    match /riders/{riderId} {
-      // Allow dispatch admin to read, create, update, and delete delivery fleet riders
-      allow read, create, update, delete: if true;
-    }
   }
 }

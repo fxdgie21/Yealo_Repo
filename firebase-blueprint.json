@@ -58,18 +58,6 @@
           "type": "string",
           "description": "Optional instructions for the rider"
         },
-        "riderName": {
-          "type": "string",
-          "description": "Name of assigned delivery rider"
-        },
-        "riderPhone": {
-          "type": "string",
-          "description": "Contact phone number of assigned delivery rider"
-        },
-        "riderNotes": {
-          "type": "string",
-          "description": "Optional rider vehicle details or instructions"
-        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when order was submitted"
@@ -116,47 +104,6 @@
         }
       },
       "required": ["id", "name", "price"]
-    },
-    "Rider": {
-      "title": "Delivery Rider",
-      "description": "Registered delivery rider with contact and vehicle details",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique rider ID"
-        },
-        "name": {
-          "type": "string",
-          "description": "Full name of delivery rider"
-        },
-        "phone": {
-          "type": "string",
-          "description": "Contact mobile phone number of rider"
-        },
-        "vehicle": {
-          "type": "string",
-          "description": "Vehicle type or insulated ice box description"
-        },
-        "plateNumber": {
-          "type": "string",
-          "description": "Vehicle plate number or fleet code"
-        },
-        "status": {
-          "type": "string",
-          "description": "Availability status",
-          "enum": ["Available", "On Delivery", "Off Duty"]
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional notes"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Registration timestamp"
-        }
-      },
-      "required": ["id", "name", "phone"]
     }
   },
   "firestore": {
@@ -167,10 +114,6 @@
     "/products/{productId}": {
       "schema": "Product",
       "description": "Configurable ice products and prices managed by Store Admin"
-    },
-    "/riders/{riderId}": {
-      "schema": "Rider",
-      "description": "Registered delivery fleet riders with contact phone numbers and vehicle details"
     }
   }
 }
