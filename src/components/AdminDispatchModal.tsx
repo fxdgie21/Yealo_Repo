@@ -35,6 +35,8 @@ import {
   Upload,
   Camera,
   Image as ImageIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   collection,
@@ -58,7 +60,7 @@ interface AdminDispatchModalProps {
   language: 'en' | 'tl';
 }
 
-const DEFAULT_PIN = '1234';
+const ADMIN_PASSWORD = 'Yealo2026';
 
 export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
   isOpen,
@@ -69,6 +71,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
     return sessionStorage.getItem('yealo_admin_auth') === 'true';
   });
   const [enteredPin, setEnteredPin] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [pinError, setPinError] = useState('');
 
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -382,12 +385,17 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (enteredPin.trim() === DEFAULT_PIN) {
+    const input = enteredPin.trim();
+    if (input === ADMIN_PASSWORD || input.toLowerCase() === 'yealo2026') {
       setIsAuthenticated(true);
       sessionStorage.setItem('yealo_admin_auth', 'true');
       setPinError('');
     } else {
-      setPinError(language === 'en' ? 'Incorrect PIN code. Hint: 1234' : 'Maling PIN code. Subukan ang 1234');
+      setPinError(
+        language === 'en'
+          ? 'Incorrect password. Please try again.'
+          : 'Maling password. Pakisubukang muli.'
+      );
     }
   };
 
@@ -885,7 +893,7 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
           </div>
         )}
 
-        {/* AUTHENTICATION GATE (PIN ENTRY) */}
+        {/* AUTHENTICATION GATE (PASSWORD ENTRY) */}
         {!isAuthenticated ? (
           <div className="p-8 sm:p-14 flex flex-col items-center justify-center text-center max-w-md mx-auto my-auto">
             <div className="w-16 h-16 rounded-2xl bg-[#FED74C]/30 border-2 border-amber-400 text-[#111827] flex items-center justify-center mb-4 shadow-sm">
@@ -895,23 +903,31 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
               Store Owner Verification
             </h4>
             <p className="text-xs text-slate-600 mb-6 leading-relaxed font-medium">
-              Enter your 4-digit Store Owner / Dispatch PIN code to access live orders, sales summaries, and rider dispatch actions.
+              Enter the Store Owner password to access live orders, sales summaries, and rider dispatch actions.
             </p>
 
             <form onSubmit={handlePinSubmit} className="w-full space-y-4">
-              <div>
+              <div className="relative">
                 <input
-                  type="password"
-                  maxLength={6}
+                  type={showPassword ? 'text' : 'password'}
+                  maxLength={32}
                   autoFocus
-                  placeholder="Enter 4-digit PIN (Default: 1234)"
+                  placeholder="Enter Admin Password"
                   value={enteredPin}
                   onChange={(e) => {
                     setEnteredPin(e.target.value);
                     setPinError('');
                   }}
-                  className="w-full text-center tracking-[0.4em] font-mono text-xl py-3 px-4 rounded-2xl bg-amber-50/50 border-2 border-amber-300 text-[#111827] placeholder:text-slate-400 placeholder:tracking-normal placeholder:text-xs focus:outline-none focus:border-[#111827] focus:ring-2 focus:ring-amber-200"
+                  className="w-full text-center font-bold text-base py-3 px-10 rounded-2xl bg-amber-50/50 border-2 border-amber-300 text-[#111827] placeholder:text-slate-400 placeholder:font-normal placeholder:text-xs focus:outline-none focus:border-[#111827] focus:ring-2 focus:ring-amber-200"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-800 cursor-pointer"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
                 {pinError && <p className="text-rose-600 text-xs mt-2 font-bold">{pinError}</p>}
               </div>
 
@@ -922,10 +938,6 @@ export const AdminDispatchModal: React.FC<AdminDispatchModalProps> = ({
                 <Unlock className="w-4 h-4 text-[#FDD023]" />
                 <span>Unlock Dispatch Portal</span>
               </button>
-
-              <p className="text-[11px] text-slate-500 pt-2 font-medium">
-                Default PIN is <span className="font-black text-[#111827] underline decoration-amber-400">1234</span>
-              </p>
             </form>
           </div>
         ) : (
